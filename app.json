@@ -31,7 +31,14 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "SmartTrade",
+      "shortName": "SmartTrade",
+      "description": "Smart Inventory Management for Small Businesses",
+      "themeColor": "#10B981",
+      "backgroundColor": "#F9FAFB"
     },
     "plugins": [
       "expo-router",

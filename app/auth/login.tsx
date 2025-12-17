@@ -156,6 +156,32 @@ export default function Login() {
         }
     };
 
+    const handleForgotPassword = async () => {
+        if (!email) {
+            Alert.alert('Email Required', 'Please enter your email address first, then tap "Forgot password?"');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: 'smarttrade://reset-password',
+            });
+
+            if (error) throw error;
+
+            Alert.alert(
+                'Password Reset Email Sent',
+                'Check your inbox for the password reset link. If you don\'t see it, check your spam folder.',
+                [{ text: 'OK' }]
+            );
+        } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to send reset email. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <View style={styles.container}>
             {/* Decorative Background Elements */}
@@ -268,7 +294,7 @@ export default function Login() {
                                 onRightIconPress={() => setShowPassword(!showPassword)}
                             />
 
-                            <TouchableOpacity style={styles.forgotPassword}>
+                            <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
                                 <Text style={styles.forgotPasswordText}>Forgot password?</Text>
                             </TouchableOpacity>
 

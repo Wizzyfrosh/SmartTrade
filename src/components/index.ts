@@ -11,3 +11,4 @@ export { EmptyState } from './EmptyState';
 export { SyncIndicator } from './SyncIndicator';
 export * from './CurvedHeader';
 export { CountryFlag } from './CountryFlag';
+export { ResponsiveContainer } from './ResponsiveContainer';

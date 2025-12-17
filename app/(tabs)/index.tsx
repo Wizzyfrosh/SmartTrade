@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
-import { StatCard, Card, EmptyState, SyncIndicator } from '../../src/components';
+import { StatCard, Card, EmptyState, SyncIndicator, ResponsiveContainer } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
 import { formatCurrency } from '../../src/utils/currency';
 import { getGreeting } from '../../src/utils/date';
@@ -75,187 +75,189 @@ export default function Dashboard() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-                }
-            >
-                {/* Header Section */}
-                <View style={styles.header}>
-                    <View>
-                        <Text style={styles.greeting}>{getGreeting()}, {userName}</Text>
-                        <Text style={styles.date}>
-                            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                        </Text>
+        <ResponsiveContainer>
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <ScrollView
+                    style={styles.scrollView}
+                    contentContainerStyle={styles.scrollContent}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+                    }
+                >
+                    {/* Header Section */}
+                    <View style={styles.header}>
+                        <View>
+                            <Text style={styles.greeting}>{getGreeting()}, {userName}</Text>
+                            <Text style={styles.date}>
+                                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                            </Text>
+                        </View>
+                        <SyncIndicator status="synced" lastSyncTime={Date.now()} />
                     </View>
-                    <SyncIndicator status="synced" lastSyncTime={Date.now()} />
-                </View>
 
-                {/* Stats Grid */}
-                <View style={styles.statsGrid}>
-                    <View style={styles.statsRow}>
-                        <StatCard
-                            icon={<Ionicons name="cash" size={24} color={colors.primary} />}
-                            label="Today's Revenue"
-                            value={formatCurrency(stats?.todayRevenue || 0, currency)}
-                            backgroundColor={colors.mintBg}
-                            iconColor={colors.primary}
-                            onPress={() => router.push('/(tabs)/sales')}
-                        />
-                        <StatCard
-                            icon={<Ionicons name="trending-up" size={24} color={colors.blue} />}
-                            label="Today's Profit"
-                            value={formatCurrency(stats?.todayProfit || 0, currency)}
-                            backgroundColor={colors.blueBg}
-                            iconColor={colors.blue}
-                            onPress={() => router.push('/(tabs)/reports')}
-                        />
+                    {/* Stats Grid */}
+                    <View style={styles.statsGrid}>
+                        <View style={styles.statsRow}>
+                            <StatCard
+                                icon={<Ionicons name="cash" size={24} color={colors.primary} />}
+                                label="Today's Revenue"
+                                value={formatCurrency(stats?.todayRevenue || 0, currency)}
+                                backgroundColor={colors.mintBg}
+                                iconColor={colors.primary}
+                                onPress={() => router.push('/(tabs)/sales')}
+                            />
+                            <StatCard
+                                icon={<Ionicons name="trending-up" size={24} color={colors.blue} />}
+                                label="Today's Profit"
+                                value={formatCurrency(stats?.todayProfit || 0, currency)}
+                                backgroundColor={colors.blueBg}
+                                iconColor={colors.blue}
+                                onPress={() => router.push('/(tabs)/reports')}
+                            />
+                        </View>
+                        <View style={styles.statsRow}>
+                            <StatCard
+                                icon={<Ionicons name="cube" size={24} color={colors.orange} />}
+                                label="Total Products"
+                                value={stats?.totalProducts || 0}
+                                backgroundColor={colors.orangeBg}
+                                iconColor={colors.orange}
+                                onPress={() => router.push('/(tabs)/inventory')}
+                            />
+                            <StatCard
+                                icon={<Ionicons name="alert-circle" size={24} color={colors.red} />}
+                                label="Low Stock"
+                                value={stats?.lowStockItems || 0}
+                                backgroundColor={colors.redBg}
+                                iconColor={colors.red}
+                                onPress={() => router.push('/(tabs)/inventory')}
+                            />
+                        </View>
                     </View>
-                    <View style={styles.statsRow}>
-                        <StatCard
-                            icon={<Ionicons name="cube" size={24} color={colors.orange} />}
-                            label="Total Products"
-                            value={stats?.totalProducts || 0}
-                            backgroundColor={colors.orangeBg}
-                            iconColor={colors.orange}
-                            onPress={() => router.push('/(tabs)/inventory')}
-                        />
-                        <StatCard
-                            icon={<Ionicons name="alert-circle" size={24} color={colors.red} />}
-                            label="Low Stock"
-                            value={stats?.lowStockItems || 0}
-                            backgroundColor={colors.redBg}
-                            iconColor={colors.red}
-                            onPress={() => router.push('/(tabs)/inventory')}
-                        />
+
+                    {/* Quick Actions */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Quick Actions</Text>
+                        <View style={styles.actionGrid}>
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => router.push('/sale/add')}
+                            >
+                                <View style={[styles.actionIcon, { backgroundColor: colors.primary }]}>
+                                    <Ionicons name="cart-outline" size={24} color={colors.textWhite} />
+                                </View>
+                                <Text style={styles.actionLabel}>Record Sale</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => router.push('/product/add')}
+                            >
+                                <View style={[styles.actionIcon, { backgroundColor: colors.blue }]}>
+                                    <Ionicons name="add-circle-outline" size={24} color={colors.textWhite} />
+                                </View>
+                                <Text style={styles.actionLabel}>Add Product</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => router.push('/(tabs)/inventory')}
+                            >
+                                <View style={[styles.actionIcon, { backgroundColor: colors.orange }]}>
+                                    <Ionicons name="search-outline" size={24} color={colors.textWhite} />
+                                </View>
+                                <Text style={styles.actionLabel}>Search Item</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => router.push('/(tabs)/reports')}
+                            >
+                                <View style={[styles.actionIcon, { backgroundColor: colors.purple }]}>
+                                    <Ionicons name="bar-chart-outline" size={24} color={colors.textWhite} />
+                                </View>
+                                <Text style={styles.actionLabel}>View Reports</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
 
-                {/* Quick Actions */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Quick Actions</Text>
-                    <View style={styles.actionGrid}>
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => router.push('/sale/add')}
-                        >
-                            <View style={[styles.actionIcon, { backgroundColor: colors.primary }]}>
-                                <Ionicons name="cart-outline" size={24} color={colors.textWhite} />
+                    {/* Low Stock Alerts */}
+                    {lowStockProducts.length > 0 && (
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>Low Stock Alerts</Text>
+                                <TouchableOpacity onPress={() => router.push('/(tabs)/inventory')}>
+                                    <Text style={styles.seeAll}>See All</Text>
+                                </TouchableOpacity>
                             </View>
-                            <Text style={styles.actionLabel}>Record Sale</Text>
-                        </TouchableOpacity>
+                            {lowStockProducts.map((product) => (
+                                <Card key={product.id} style={styles.alertCard} onPress={() => { }}>
+                                    <View style={styles.alertContent}>
+                                        <View style={styles.alertIcon}>
+                                            <Ionicons name="warning" size={20} color={colors.warning} />
+                                        </View>
+                                        <View style={styles.alertInfo}>
+                                            <Text style={styles.alertProductName}>{product.name}</Text>
+                                            <Text style={styles.alertProductStock}>
+                                                {product.stockQuantity} {product.stockQuantity === 1 ? 'piece' : 'pieces'} remaining
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            style={styles.restockButton}
+                                            onPress={() => router.push({ pathname: '/product/add', params: { id: product.id } })}
+                                        >
+                                            <Text style={styles.restockText}>Restock</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </Card>
+                            ))}
+                        </View>
+                    )}
 
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => router.push('/product/add')}
-                        >
-                            <View style={[styles.actionIcon, { backgroundColor: colors.blue }]}>
-                                <Ionicons name="add-circle-outline" size={24} color={colors.textWhite} />
-                            </View>
-                            <Text style={styles.actionLabel}>Add Product</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => router.push('/(tabs)/inventory')}
-                        >
-                            <View style={[styles.actionIcon, { backgroundColor: colors.orange }]}>
-                                <Ionicons name="search-outline" size={24} color={colors.textWhite} />
-                            </View>
-                            <Text style={styles.actionLabel}>Search Item</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => router.push('/(tabs)/reports')}
-                        >
-                            <View style={[styles.actionIcon, { backgroundColor: colors.purple }]}>
-                                <Ionicons name="bar-chart-outline" size={24} color={colors.textWhite} />
-                            </View>
-                            <Text style={styles.actionLabel}>View Reports</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Low Stock Alerts */}
-                {lowStockProducts.length > 0 && (
+                    {/* Recent Sales */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Low Stock Alerts</Text>
-                            <TouchableOpacity onPress={() => router.push('/(tabs)/inventory')}>
+                            <Text style={styles.sectionTitle}>Recent Sales</Text>
+                            <TouchableOpacity onPress={() => router.push('/(tabs)/sales')}>
                                 <Text style={styles.seeAll}>See All</Text>
                             </TouchableOpacity>
                         </View>
-                        {lowStockProducts.map((product) => (
-                            <Card key={product.id} style={styles.alertCard} onPress={() => { }}>
-                                <View style={styles.alertContent}>
-                                    <View style={styles.alertIcon}>
-                                        <Ionicons name="warning" size={20} color={colors.warning} />
+
+                        {todaySales.length === 0 ? (
+                            <EmptyState
+                                icon={<Ionicons name="cart-outline" size={48} color={colors.textTertiary} />}
+                                title="No sales today"
+                                message="Record your first sale to see it here."
+                                actionLabel="Record Sale"
+                                onAction={() => router.push('/sale/add')}
+                            />
+                        ) : (
+                            todaySales.map((sale) => (
+                                <Card key={sale.id} style={styles.saleCard} onPress={() => { }}>
+                                    <View style={styles.saleContent}>
+                                        <View style={[styles.saleIcon, { backgroundColor: colors.mintBg }]}>
+                                            <Ionicons name="checkmark" size={16} color={colors.primary} />
+                                        </View>
+                                        <View style={styles.saleInfo}>
+                                            <Text style={styles.saleAmount}>{formatCurrency(sale.totalRevenue, currency)}</Text>
+                                            <Text style={styles.saleTime}>
+                                                {new Date(sale.saleDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.saleDetails}>
+                                            <Text style={styles.saleQuantity}>{sale.quantity} items</Text>
+                                            <Text style={styles.saleProfit}>+{formatCurrency(sale.profit, currency)} profit</Text>
+                                        </View>
                                     </View>
-                                    <View style={styles.alertInfo}>
-                                        <Text style={styles.alertProductName}>{product.name}</Text>
-                                        <Text style={styles.alertProductStock}>
-                                            {product.stockQuantity} {product.stockQuantity === 1 ? 'piece' : 'pieces'} remaining
-                                        </Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        style={styles.restockButton}
-                                        onPress={() => router.push({ pathname: '/product/add', params: { id: product.id } })}
-                                    >
-                                        <Text style={styles.restockText}>Restock</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </Card>
-                        ))}
+                                </Card>
+                            ))
+                        )}
                     </View>
-                )}
 
-                {/* Recent Sales */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Recent Sales</Text>
-                        <TouchableOpacity onPress={() => router.push('/(tabs)/sales')}>
-                            <Text style={styles.seeAll}>See All</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {todaySales.length === 0 ? (
-                        <EmptyState
-                            icon={<Ionicons name="cart-outline" size={48} color={colors.textTertiary} />}
-                            title="No sales today"
-                            message="Record your first sale to see it here."
-                            actionLabel="Record Sale"
-                            onAction={() => router.push('/sale/add')}
-                        />
-                    ) : (
-                        todaySales.map((sale) => (
-                            <Card key={sale.id} style={styles.saleCard} onPress={() => { }}>
-                                <View style={styles.saleContent}>
-                                    <View style={[styles.saleIcon, { backgroundColor: colors.mintBg }]}>
-                                        <Ionicons name="checkmark" size={16} color={colors.primary} />
-                                    </View>
-                                    <View style={styles.saleInfo}>
-                                        <Text style={styles.saleAmount}>{formatCurrency(sale.totalRevenue, currency)}</Text>
-                                        <Text style={styles.saleTime}>
-                                            {new Date(sale.saleDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.saleDetails}>
-                                        <Text style={styles.saleQuantity}>{sale.quantity} items</Text>
-                                        <Text style={styles.saleProfit}>+{formatCurrency(sale.profit, currency)} profit</Text>
-                                    </View>
-                                </View>
-                            </Card>
-                        ))
-                    )}
-                </View>
-
-                <View style={styles.footerSpacer} />
-            </ScrollView>
-        </SafeAreaView>
+                    <View style={styles.footerSpacer} />
+                </ScrollView>
+            </SafeAreaView>
+        </ResponsiveContainer>
     );
 }
 

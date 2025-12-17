@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
-import { Button, Input } from '../../src/components';
+import { Button, Input, ResponsiveContainer } from '../../src/components';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { supabase } from '../../src/services/supabase/client';
 import { COUNTRY_CURRENCY_MAP } from '../../src/utils/currency';
@@ -164,231 +164,233 @@ export default function Settings() {
     ];
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Settings</Text>
-                <Text style={styles.headerSubtitle}>Manage your app preferences</Text>
-            </View>
-
-            <ScrollView style={styles.content}>
-                {/* Profile Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Profile</Text>
-                    <View style={styles.profileCard}>
-                        <TouchableOpacity onPress={handlePickImage} >
-                            <View style={styles.avatar}>
-                                {user?.user_metadata?.avatar_url ? (
-                                    <Image
-                                        source={{ uri: user.user_metadata.avatar_url }}
-                                        style={styles.avatarImage}
-                                    />
-                                ) : (
-                                    <Text style={styles.avatarText}>
-                                        {user?.user_metadata?.full_name?.charAt(0).toUpperCase() || 'U'}
-                                    </Text>
-                                )}
-                                <View style={styles.cameraIconBadge}>
-                                    <Ionicons name="camera" size={12} color={colors.textWhite} />
-                                </View>
-                            </View>
-                        </TouchableOpacity>
-                        <View style={styles.profileInfo}>
-                            <Text style={styles.userName}>{user?.user_metadata?.full_name || 'User'}</Text>
-                            <Text style={styles.userEmail}>{user?.email}</Text>
-                        </View>
-                        <TouchableOpacity onPress={openProfileEdit} style={styles.editButton}>
-                            <Ionicons name="pencil" size={20} color={colors.primary} />
-                        </TouchableOpacity>
-                    </View>
+        <ResponsiveContainer>
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>Settings</Text>
+                    <Text style={styles.headerSubtitle}>Manage your app preferences</Text>
                 </View>
 
-                {/* General Settings */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>General</Text>
-
-                    <View style={styles.settingRow}>
-                        <View>
-                            <Text style={styles.settingLabel}>Currency</Text>
-                            <Text style={styles.settingDesc}>Select your preferred currency</Text>
-                        </View>
-                        <TouchableOpacity style={styles.valueDisplay} onPress={() => setIsCurrencyModalVisible(true)}>
-                            <Text style={styles.valueText}>{currency}</Text>
-                            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/privacy-policy')}>
-                        <View>
-                            <Text style={styles.settingLabel}>Privacy Policy</Text>
-                            <Text style={styles.settingDesc}>Read our privacy policy</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
-                    </TouchableOpacity>
-
-                    <View style={styles.settingRow}>
-                        <View>
-                            <Text style={styles.settingLabel}>Theme</Text>
-                            <Text style={styles.settingDesc}>App appearance</Text>
-                        </View>
-                        <TouchableOpacity style={styles.valueDisplay} onPress={() => setIsThemeModalVisible(true)}>
-                            <Text style={styles.valueText}>{theme.charAt(0).toUpperCase() + theme.slice(1)}</Text>
-                            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.settingRow}>
-                        <View>
-                            <Text style={styles.settingLabel}>Low Stock Alert</Text>
-                            <Text style={styles.settingDesc}>Notify when stock is below this limit</Text>
-                        </View>
-                        <TextInput
-                            style={styles.inputSmall}
-                            value={localThreshold}
-                            onChangeText={handleThresholdChange}
-                            keyboardType="number-pad"
-                            placeholderTextColor={colors.textTertiary}
-                        />
-                    </View>
-
-                    <View style={styles.settingRow}>
-                        <View>
-                            <Text style={styles.settingLabel}>Notifications</Text>
-                            <Text style={styles.settingDesc}>Enable push notifications</Text>
-                        </View>
-                        <Switch
-                            value={notificationsEnabled}
-                            onValueChange={(val) => updateSettings({ notificationsEnabled: val })}
-                            trackColor={{ false: colors.border, true: colors.primary }}
-                            thumbColor={colors.cardBackground}
-                        />
-                    </View>
-                </View>
-
-                <Button
-                    title="Sign Out"
-                    onPress={handleSignOut}
-                    variant="outline"
-                    style={styles.signOutButton}
-                    icon={<Ionicons name="log-out-outline" size={20} color={colors.primary} />}
-                />
-            </ScrollView>
-
-            {/* Edit Profile Modal */}
-            <Modal
-                visible={isEditingProfile}
-                transparent
-                animationType="slide"
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Edit Profile</Text>
-                            <TouchableOpacity onPress={() => setIsEditingProfile(false)}>
-                                <Ionicons name="close" size={24} color={colors.textPrimary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.modalBody}>
-                            <Input
-                                label="Full Name"
-                                value={editName}
-                                onChangeText={setEditName}
-                                placeholder="Enter your full name"
-                            />
-
-                            <Button
-                                title={loading ? "Saving..." : "Save Changes"}
-                                onPress={handleUpdateProfile}
-                                loading={loading}
-                                disabled={loading}
-                                style={styles.modalButton}
-                            />
-                        </View>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* Currency Selection Modal */}
-            <Modal
-                visible={isCurrencyModalVisible}
-                transparent
-                animationType="slide"
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContentExtended}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Select Currency</Text>
-                            <TouchableOpacity onPress={() => setIsCurrencyModalVisible(false)}>
-                                <Ionicons name="close" size={24} color={colors.textPrimary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <ScrollView style={styles.currencyList}>
-                            {sortedCurrencies.map(([countryCode, currencyInfo]) => (
-                                <TouchableOpacity
-                                    key={countryCode}
-                                    style={[
-                                        styles.currencyItem,
-                                        currency === currencyInfo.code && styles.currencyItemActive
-                                    ]}
-                                    onPress={() => {
-                                        updateSettings({ currency: currencyInfo.code });
-                                        setIsCurrencyModalVisible(false);
-                                    }}
-                                >
-                                    <View>
-                                        <Text style={styles.currencyCode}>{currencyInfo.code}</Text>
-                                        <Text style={styles.currencyCountry}>{currencyInfo.countryName}</Text>
+                <ScrollView style={styles.content}>
+                    {/* Profile Section */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Profile</Text>
+                        <View style={styles.profileCard}>
+                            <TouchableOpacity onPress={handlePickImage} >
+                                <View style={styles.avatar}>
+                                    {user?.user_metadata?.avatar_url ? (
+                                        <Image
+                                            source={{ uri: user.user_metadata.avatar_url }}
+                                            style={styles.avatarImage}
+                                        />
+                                    ) : (
+                                        <Text style={styles.avatarText}>
+                                            {user?.user_metadata?.full_name?.charAt(0).toUpperCase() || 'U'}
+                                        </Text>
+                                    )}
+                                    <View style={styles.cameraIconBadge}>
+                                        <Ionicons name="camera" size={12} color={colors.textWhite} />
                                     </View>
-                                    {currency === currencyInfo.code && (
-                                        <Ionicons name="checkmark" size={20} color={colors.primary} />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
+                                </View>
+                            </TouchableOpacity>
+                            <View style={styles.profileInfo}>
+                                <Text style={styles.userName}>{user?.user_metadata?.full_name || 'User'}</Text>
+                                <Text style={styles.userEmail}>{user?.email}</Text>
+                            </View>
+                            <TouchableOpacity onPress={openProfileEdit} style={styles.editButton}>
+                                <Ionicons name="pencil" size={20} color={colors.primary} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
-            </Modal>
 
-            {/* Theme Selection Modal */}
-            <Modal
-                visible={isThemeModalVisible}
-                transparent
-                animationType="slide"
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Select Theme</Text>
-                            <TouchableOpacity onPress={() => setIsThemeModalVisible(false)}>
-                                <Ionicons name="close" size={24} color={colors.textPrimary} />
+                    {/* General Settings */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>General</Text>
+
+                        <View style={styles.settingRow}>
+                            <View>
+                                <Text style={styles.settingLabel}>Currency</Text>
+                                <Text style={styles.settingDesc}>Select your preferred currency</Text>
+                            </View>
+                            <TouchableOpacity style={styles.valueDisplay} onPress={() => setIsCurrencyModalVisible(true)}>
+                                <Text style={styles.valueText}>{currency}</Text>
+                                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
                             </TouchableOpacity>
                         </View>
 
-                        <View style={styles.currencyList}>
-                            {THEME_OPTIONS.map((option) => (
-                                <TouchableOpacity
-                                    key={option.value}
-                                    style={[
-                                        styles.currencyItem,
-                                        theme === option.value && styles.currencyItemActive
-                                    ]}
-                                    onPress={() => {
-                                        updateSettings({ theme: option.value as any });
-                                        setIsThemeModalVisible(false);
-                                    }}
-                                >
-                                    <Text style={styles.currencyCode}>{option.label}</Text>
-                                    {theme === option.value && (
-                                        <Ionicons name="checkmark" size={20} color={colors.primary} />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
+                        <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/privacy-policy')}>
+                            <View>
+                                <Text style={styles.settingLabel}>Privacy Policy</Text>
+                                <Text style={styles.settingDesc}>Read our privacy policy</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+                        </TouchableOpacity>
+
+                        <View style={styles.settingRow}>
+                            <View>
+                                <Text style={styles.settingLabel}>Theme</Text>
+                                <Text style={styles.settingDesc}>App appearance</Text>
+                            </View>
+                            <TouchableOpacity style={styles.valueDisplay} onPress={() => setIsThemeModalVisible(true)}>
+                                <Text style={styles.valueText}>{theme.charAt(0).toUpperCase() + theme.slice(1)}</Text>
+                                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.settingRow}>
+                            <View>
+                                <Text style={styles.settingLabel}>Low Stock Alert</Text>
+                                <Text style={styles.settingDesc}>Notify when stock is below this limit</Text>
+                            </View>
+                            <TextInput
+                                style={styles.inputSmall}
+                                value={localThreshold}
+                                onChangeText={handleThresholdChange}
+                                keyboardType="number-pad"
+                                placeholderTextColor={colors.textTertiary}
+                            />
+                        </View>
+
+                        <View style={styles.settingRow}>
+                            <View>
+                                <Text style={styles.settingLabel}>Notifications</Text>
+                                <Text style={styles.settingDesc}>Enable push notifications</Text>
+                            </View>
+                            <Switch
+                                value={notificationsEnabled}
+                                onValueChange={(val) => updateSettings({ notificationsEnabled: val })}
+                                trackColor={{ false: colors.border, true: colors.primary }}
+                                thumbColor={colors.cardBackground}
+                            />
                         </View>
                     </View>
-                </View>
-            </Modal>
-        </SafeAreaView>
+
+                    <Button
+                        title="Sign Out"
+                        onPress={handleSignOut}
+                        variant="outline"
+                        style={styles.signOutButton}
+                        icon={<Ionicons name="log-out-outline" size={20} color={colors.primary} />}
+                    />
+                </ScrollView>
+
+                {/* Edit Profile Modal */}
+                <Modal
+                    visible={isEditingProfile}
+                    transparent
+                    animationType="slide"
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Edit Profile</Text>
+                                <TouchableOpacity onPress={() => setIsEditingProfile(false)}>
+                                    <Ionicons name="close" size={24} color={colors.textPrimary} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.modalBody}>
+                                <Input
+                                    label="Full Name"
+                                    value={editName}
+                                    onChangeText={setEditName}
+                                    placeholder="Enter your full name"
+                                />
+
+                                <Button
+                                    title={loading ? "Saving..." : "Save Changes"}
+                                    onPress={handleUpdateProfile}
+                                    loading={loading}
+                                    disabled={loading}
+                                    style={styles.modalButton}
+                                />
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* Currency Selection Modal */}
+                <Modal
+                    visible={isCurrencyModalVisible}
+                    transparent
+                    animationType="slide"
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContentExtended}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Select Currency</Text>
+                                <TouchableOpacity onPress={() => setIsCurrencyModalVisible(false)}>
+                                    <Ionicons name="close" size={24} color={colors.textPrimary} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <ScrollView style={styles.currencyList}>
+                                {sortedCurrencies.map(([countryCode, currencyInfo]) => (
+                                    <TouchableOpacity
+                                        key={countryCode}
+                                        style={[
+                                            styles.currencyItem,
+                                            currency === currencyInfo.code && styles.currencyItemActive
+                                        ]}
+                                        onPress={() => {
+                                            updateSettings({ currency: currencyInfo.code });
+                                            setIsCurrencyModalVisible(false);
+                                        }}
+                                    >
+                                        <View>
+                                            <Text style={styles.currencyCode}>{currencyInfo.code}</Text>
+                                            <Text style={styles.currencyCountry}>{currencyInfo.countryName}</Text>
+                                        </View>
+                                        {currency === currencyInfo.code && (
+                                            <Ionicons name="checkmark" size={20} color={colors.primary} />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* Theme Selection Modal */}
+                <Modal
+                    visible={isThemeModalVisible}
+                    transparent
+                    animationType="slide"
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Select Theme</Text>
+                                <TouchableOpacity onPress={() => setIsThemeModalVisible(false)}>
+                                    <Ionicons name="close" size={24} color={colors.textPrimary} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.currencyList}>
+                                {THEME_OPTIONS.map((option) => (
+                                    <TouchableOpacity
+                                        key={option.value}
+                                        style={[
+                                            styles.currencyItem,
+                                            theme === option.value && styles.currencyItemActive
+                                        ]}
+                                        onPress={() => {
+                                            updateSettings({ theme: option.value as any });
+                                            setIsThemeModalVisible(false);
+                                        }}
+                                    >
+                                        <Text style={styles.currencyCode}>{option.label}</Text>
+                                        {theme === option.value && (
+                                            <Ionicons name="checkmark" size={20} color={colors.primary} />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            </SafeAreaView>
+        </ResponsiveContainer>
     );
 }
 

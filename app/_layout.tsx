@@ -5,10 +5,17 @@
 
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { SettingsProvider } from '../src/contexts/SettingsContext';
 import { Colors } from '../src/constants/theme';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
+
+// Import global CSS for web
+if (Platform.OS === 'web') {
+    require('../global.css');
+}
 
 function InitialLayout() {
     const { session, loading } = useAuth();
@@ -42,6 +49,19 @@ function InitialLayout() {
 }
 
 export default function RootLayout() {
+    // Load Ionicons font for proper rendering on web
+    const [fontsLoaded] = useFonts({
+        ...Ionicons.font,
+    });
+
+    if (!fontsLoaded) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+        );
+    }
+
     return (
         <AuthProvider>
             <SettingsProvider>

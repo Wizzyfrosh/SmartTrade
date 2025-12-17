@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
-import { EmptyState, Button, StatCard, Card } from '../../src/components';
+import { EmptyState, Button, StatCard, Card, ResponsiveContainer } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
 import { exportSalesReport, exportInventory } from '../../src/utils/csv-export';
 import { formatCurrency } from '../../src/utils/currency';
@@ -96,101 +96,103 @@ export default function Reports() {
     const stats = calculateStats();
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Sales Reports</Text>
-                <Text style={styles.headerSubtitle}>Analyze your business performance</Text>
-            </View>
-
-            <View style={styles.content}>
-                {/* Period Selector */}
-                <View style={styles.periodSelector}>
-                    {(['today', 'week', 'month'] as Period[]).map((p) => (
-                        <TouchableOpacity
-                            key={p}
-                            style={[styles.periodTab, period === p && styles.periodTabActive]}
-                            onPress={() => setPeriod(p)}
-                        >
-                            <Text style={[styles.periodText, period === p && styles.periodTextActive]}>
-                                {p.charAt(0).toUpperCase() + p.slice(1)}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
+        <ResponsiveContainer>
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>Sales Reports</Text>
+                    <Text style={styles.headerSubtitle}>Analyze your business performance</Text>
                 </View>
 
-                <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-                    {loading ? (
-                        <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-                    ) : (
-                        <>
-                            {/* Stats Cards */}
-                            <View style={styles.statsGrid}>
-                                <View style={styles.statHalf}>
-                                    <StatCard
-                                        icon={<Ionicons name="cash" size={24} color={colors.primary} />}
-                                        label="Revenue"
-                                        value={formatCurrency(stats.revenue, currency)}
-                                        backgroundColor={colors.mintBg}
-                                    />
-                                </View>
-                                <View style={styles.statHalf}>
-                                    <StatCard
-                                        icon={<Ionicons name="trending-up" size={24} color={colors.blue} />}
-                                        label="Profit"
-                                        value={formatCurrency(stats.profit, currency)}
-                                        backgroundColor={colors.blueBg}
-                                    />
-                                </View>
-                            </View>
-
-                            <View style={styles.statsGrid}>
-                                <View style={styles.statHalf}>
-                                    <StatCard
-                                        icon={<Ionicons name="cart" size={24} color={colors.orange} />}
-                                        label="Items Sold"
-                                        value={stats.items}
-                                        backgroundColor={colors.orangeBg}
-                                    />
-                                </View>
-                                <View style={styles.statHalf}>
-                                    <StatCard
-                                        icon={<Ionicons name="pie-chart" size={24} color={colors.purple} />}
-                                        label="Margin"
-                                        value={stats.margin}
-                                        backgroundColor={colors.purpleLight}
-                                    />
-                                </View>
-                            </View>
-
-                            {/* Export Actions */}
-                            <Text style={styles.sectionTitle}>Quick Actions</Text>
-
-                            <TouchableOpacity style={styles.actionButton} onPress={handleExportSales}>
-                                <View style={[styles.actionIcon, { backgroundColor: colors.blueBg }]}>
-                                    <Ionicons name="download-outline" size={24} color={colors.blue} />
-                                </View>
-                                <View style={styles.actionInfo}>
-                                    <Text style={styles.actionTitle}>Export Sales Report</Text>
-                                    <Text style={styles.actionDesc}>Download CSV of sales for this period</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                <View style={styles.content}>
+                    {/* Period Selector */}
+                    <View style={styles.periodSelector}>
+                        {(['today', 'week', 'month'] as Period[]).map((p) => (
+                            <TouchableOpacity
+                                key={p}
+                                style={[styles.periodTab, period === p && styles.periodTabActive]}
+                                onPress={() => setPeriod(p)}
+                            >
+                                <Text style={[styles.periodText, period === p && styles.periodTextActive]}>
+                                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                                </Text>
                             </TouchableOpacity>
+                        ))}
+                    </View>
 
-                            <TouchableOpacity style={styles.actionButton} onPress={handleExportInventory}>
-                                <View style={[styles.actionIcon, { backgroundColor: colors.orangeBg }]}>
-                                    <Ionicons name="list-outline" size={24} color={colors.orange} />
+                    <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+                        {loading ? (
+                            <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+                        ) : (
+                            <>
+                                {/* Stats Cards */}
+                                <View style={styles.statsGrid}>
+                                    <View style={styles.statHalf}>
+                                        <StatCard
+                                            icon={<Ionicons name="cash" size={24} color={colors.primary} />}
+                                            label="Revenue"
+                                            value={formatCurrency(stats.revenue, currency)}
+                                            backgroundColor={colors.mintBg}
+                                        />
+                                    </View>
+                                    <View style={styles.statHalf}>
+                                        <StatCard
+                                            icon={<Ionicons name="trending-up" size={24} color={colors.blue} />}
+                                            label="Profit"
+                                            value={formatCurrency(stats.profit, currency)}
+                                            backgroundColor={colors.blueBg}
+                                        />
+                                    </View>
                                 </View>
-                                <View style={styles.actionInfo}>
-                                    <Text style={styles.actionTitle}>Export Inventory</Text>
-                                    <Text style={styles.actionDesc}>Download full inventory list as CSV</Text>
+
+                                <View style={styles.statsGrid}>
+                                    <View style={styles.statHalf}>
+                                        <StatCard
+                                            icon={<Ionicons name="cart" size={24} color={colors.orange} />}
+                                            label="Items Sold"
+                                            value={stats.items}
+                                            backgroundColor={colors.orangeBg}
+                                        />
+                                    </View>
+                                    <View style={styles.statHalf}>
+                                        <StatCard
+                                            icon={<Ionicons name="pie-chart" size={24} color={colors.purple} />}
+                                            label="Margin"
+                                            value={stats.margin}
+                                            backgroundColor={colors.purpleLight}
+                                        />
+                                    </View>
                                 </View>
-                                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                        </>
-                    )}
-                </ScrollView>
-            </View>
-        </SafeAreaView>
+
+                                {/* Export Actions */}
+                                <Text style={styles.sectionTitle}>Quick Actions</Text>
+
+                                <TouchableOpacity style={styles.actionButton} onPress={handleExportSales}>
+                                    <View style={[styles.actionIcon, { backgroundColor: colors.blueBg }]}>
+                                        <Ionicons name="download-outline" size={24} color={colors.blue} />
+                                    </View>
+                                    <View style={styles.actionInfo}>
+                                        <Text style={styles.actionTitle}>Export Sales Report</Text>
+                                        <Text style={styles.actionDesc}>Download CSV of sales for this period</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.actionButton} onPress={handleExportInventory}>
+                                    <View style={[styles.actionIcon, { backgroundColor: colors.orangeBg }]}>
+                                        <Ionicons name="list-outline" size={24} color={colors.orange} />
+                                    </View>
+                                    <View style={styles.actionInfo}>
+                                        <Text style={styles.actionTitle}>Export Inventory</Text>
+                                        <Text style={styles.actionDesc}>Download full inventory list as CSV</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </ScrollView>
+                </View>
+            </SafeAreaView>
+        </ResponsiveContainer>
     );
 }
 

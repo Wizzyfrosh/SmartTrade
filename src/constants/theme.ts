@@ -190,3 +190,18 @@ export const CategoryColors: Record<string, { bg: string; text: string }> = {
     furniture: { bg: Colors.mintBg, text: Colors.primary },
     default: { bg: Colors.background, text: Colors.textSecondary },
 };
+
+// Responsive breakpoints for web
+export const Breakpoints = {
+    mobile: 480,
+    tablet: 768,
+    desktop: 1024,
+    wide: 1280,
+};
+
+// Layout constraints for responsive design
+export const Layout = {
+    maxContentWidth: 480, // Match mobile app width on desktop
+    wideContentWidth: 600, // Slightly wider for tablets
+    containerPadding: 20,
+};

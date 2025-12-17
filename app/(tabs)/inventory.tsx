@@ -14,7 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
-import { StatCard, Card, EmptyState, Button } from '../../src/components';
+import { StatCard, Card, EmptyState, Button, ResponsiveContainer } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
 import { formatCurrency } from '../../src/utils/currency';
 import { useSettings } from '../../src/contexts/SettingsContext';
@@ -78,145 +78,147 @@ export default function Inventory() {
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Inventory Management</Text>
-                <Text style={styles.headerSubtitle}>Manage your products and stock levels</Text>
-            </View>
-
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-                {/* Add Product Button */}
-                <Button
-                    title="+ Add New Product"
-                    onPress={() => router.push('/product/add')}
-                    variant="primary"
-                    style={styles.addButton}
-                />
-
-                {/* Stats Grid */}
-                <View style={styles.statsGrid}>
-                    <View style={styles.statHalf}>
-                        <StatCard
-                            icon={<Ionicons name="cube" size={24} color={colors.blue} />}
-                            label="Total Products"
-                            value={stats?.totalProducts || 0}
-                            backgroundColor={colors.cardBackground}
-                            iconColor={colors.blue}
-                        />
-                    </View>
-                    <View style={styles.statHalf}>
-                        <StatCard
-                            icon={<Ionicons name="warning" size={24} color={colors.orange} />}
-                            label="Low Stock"
-                            value={stats?.lowStockItems || 0}
-                            backgroundColor={colors.orangeBg}
-                            iconColor={colors.orange}
-                        />
-                    </View>
+        <ResponsiveContainer>
+            <View style={styles.container}>
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>Inventory Management</Text>
+                    <Text style={styles.headerSubtitle}>Manage your products and stock levels</Text>
                 </View>
 
-                <View style={styles.statsGrid}>
-                    <View style={styles.statHalf}>
-                        <StatCard
-                            icon={<Ionicons name="close-circle" size={24} color={colors.red} />}
-                            label="Out of Stock"
-                            value={stats?.outOfStockItems || 0}
-                            backgroundColor={colors.redBg}
-                            iconColor={colors.red}
-                        />
-                    </View>
-                    <View style={styles.statHalf}>
-                        <StatCard
-                            icon={<Ionicons name="cash" size={24} color={colors.primary} />}
-                            label="Stock Value"
-                            value={formatCurrency(stats?.stockValue || 0, currency)}
-                            backgroundColor={colors.mintBg}
-                            iconColor={colors.primary}
-                        />
-                    </View>
-                </View>
-
-                {/* Search Bar */}
-                <View style={styles.searchContainer}>
-                    <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Search products by name or SKU..."
-                        value={searchQuery}
-                        onChangeText={handleSearch}
-                        placeholderTextColor={colors.textTertiary}
+                <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+                    {/* Add Product Button */}
+                    <Button
+                        title="+ Add New Product"
+                        onPress={() => router.push('/product/add')}
+                        variant="primary"
+                        style={styles.addButton}
                     />
-                </View>
 
-                {/* Filters */}
-                <View style={styles.filters}>
-                    <TouchableOpacity style={styles.filterButton}>
-                        <Text style={styles.filterText}>All Categories</Text>
-                        <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.filterButton}>
-                        <Text style={styles.filterText}>All Stock</Text>
-                        <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Products List */}
-                {products.length === 0 ? (
-                    <Card>
-                        <EmptyState
-                            icon={<Ionicons name="cube-outline" size={64} color={colors.textTertiary} />}
-                            title="No products yet"
-                            message="Start by adding your first product to inventory"
-                            actionLabel="Add Product"
-                            onAction={() => router.push('/product/add')}
-                        />
-                    </Card>
-                ) : (
-                    <View style={styles.productsList}>
-                        {products.map((product) => {
-                            const threshold = getThreshold(product);
-                            const isLowStock = product.stockQuantity <= threshold && product.stockQuantity > 0;
-                            const isOutStock = product.stockQuantity === 0;
-
-                            return (
-                                <TouchableOpacity key={product.id} onPress={() => handleProductPress(product)}>
-                                    <Card style={styles.productCard}>
-                                        <View style={styles.productRow}>
-                                            <View style={styles.productIcon}>
-                                                {product.imageUrl ? (
-                                                    <Image source={{ uri: product.imageUrl }} style={styles.productImage} />
-                                                ) : (
-                                                    <Ionicons name="cube" size={24} color={colors.blue} />
-                                                )}
-                                            </View>
-                                            <View style={styles.productInfo}>
-                                                <Text style={styles.productName}>{product.name}</Text>
-                                                <Text style={styles.productSKU}>SKU: {product.sku || 'N/A'}</Text>
-                                                <Text style={styles.productPrice}>
-                                                    {formatCurrency(product.sellingPrice, currency)}
-                                                </Text>
-                                            </View>
-                                            <View style={styles.productStock}>
-                                                <Text style={[
-                                                    styles.stockQuantity,
-                                                    isOutStock && styles.stockOut,
-                                                    isLowStock && styles.stockLow,
-                                                ]}>
-                                                    {product.stockQuantity}
-                                                </Text>
-                                                <Text style={styles.stockLabel}>in stock</Text>
-                                            </View>
-                                        </View>
-                                    </Card>
-                                </TouchableOpacity>
-                            );
-                        })}
+                    {/* Stats Grid */}
+                    <View style={styles.statsGrid}>
+                        <View style={styles.statHalf}>
+                            <StatCard
+                                icon={<Ionicons name="cube" size={24} color={colors.blue} />}
+                                label="Total Products"
+                                value={stats?.totalProducts || 0}
+                                backgroundColor={colors.cardBackground}
+                                iconColor={colors.blue}
+                            />
+                        </View>
+                        <View style={styles.statHalf}>
+                            <StatCard
+                                icon={<Ionicons name="warning" size={24} color={colors.orange} />}
+                                label="Low Stock"
+                                value={stats?.lowStockItems || 0}
+                                backgroundColor={colors.orangeBg}
+                                iconColor={colors.orange}
+                            />
+                        </View>
                     </View>
-                )}
 
-                <View style={{ height: Spacing['3xl'] }} />
-            </ScrollView>
-        </View>
+                    <View style={styles.statsGrid}>
+                        <View style={styles.statHalf}>
+                            <StatCard
+                                icon={<Ionicons name="close-circle" size={24} color={colors.red} />}
+                                label="Out of Stock"
+                                value={stats?.outOfStockItems || 0}
+                                backgroundColor={colors.redBg}
+                                iconColor={colors.red}
+                            />
+                        </View>
+                        <View style={styles.statHalf}>
+                            <StatCard
+                                icon={<Ionicons name="cash" size={24} color={colors.primary} />}
+                                label="Stock Value"
+                                value={formatCurrency(stats?.stockValue || 0, currency)}
+                                backgroundColor={colors.mintBg}
+                                iconColor={colors.primary}
+                            />
+                        </View>
+                    </View>
+
+                    {/* Search Bar */}
+                    <View style={styles.searchContainer}>
+                        <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search products by name or SKU..."
+                            value={searchQuery}
+                            onChangeText={handleSearch}
+                            placeholderTextColor={colors.textTertiary}
+                        />
+                    </View>
+
+                    {/* Filters */}
+                    <View style={styles.filters}>
+                        <TouchableOpacity style={styles.filterButton}>
+                            <Text style={styles.filterText}>All Categories</Text>
+                            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.filterButton}>
+                            <Text style={styles.filterText}>All Stock</Text>
+                            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Products List */}
+                    {products.length === 0 ? (
+                        <Card>
+                            <EmptyState
+                                icon={<Ionicons name="cube-outline" size={64} color={colors.textTertiary} />}
+                                title="No products yet"
+                                message="Start by adding your first product to inventory"
+                                actionLabel="Add Product"
+                                onAction={() => router.push('/product/add')}
+                            />
+                        </Card>
+                    ) : (
+                        <View style={styles.productsList}>
+                            {products.map((product) => {
+                                const threshold = getThreshold(product);
+                                const isLowStock = product.stockQuantity <= threshold && product.stockQuantity > 0;
+                                const isOutStock = product.stockQuantity === 0;
+
+                                return (
+                                    <TouchableOpacity key={product.id} onPress={() => handleProductPress(product)}>
+                                        <Card style={styles.productCard}>
+                                            <View style={styles.productRow}>
+                                                <View style={styles.productIcon}>
+                                                    {product.imageUrl ? (
+                                                        <Image source={{ uri: product.imageUrl }} style={styles.productImage} />
+                                                    ) : (
+                                                        <Ionicons name="cube" size={24} color={colors.blue} />
+                                                    )}
+                                                </View>
+                                                <View style={styles.productInfo}>
+                                                    <Text style={styles.productName}>{product.name}</Text>
+                                                    <Text style={styles.productSKU}>SKU: {product.sku || 'N/A'}</Text>
+                                                    <Text style={styles.productPrice}>
+                                                        {formatCurrency(product.sellingPrice, currency)}
+                                                    </Text>
+                                                </View>
+                                                <View style={styles.productStock}>
+                                                    <Text style={[
+                                                        styles.stockQuantity,
+                                                        isOutStock && styles.stockOut,
+                                                        isLowStock && styles.stockLow,
+                                                    ]}>
+                                                        {product.stockQuantity}
+                                                    </Text>
+                                                    <Text style={styles.stockLabel}>in stock</Text>
+                                                </View>
+                                            </View>
+                                        </Card>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    )}
+
+                    <View style={{ height: Spacing['3xl'] }} />
+                </ScrollView>
+            </View>
+        </ResponsiveContainer>
     );
 }
 

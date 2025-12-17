@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Typography, BorderRadius } from '../../src/constants/theme';
-import { Button, EmptyState, Card } from '../../src/components';
+import { Button, EmptyState, Card, ResponsiveContainer } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
 import { formatCurrency } from '../../src/utils/currency';
 import { useSettings } from '../../src/contexts/SettingsContext';
@@ -61,41 +61,43 @@ export default function Sales() {
     );
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Sales</Text>
-                <Text style={styles.headerSubtitle}>Track and manage your sales</Text>
-            </View>
+        <ResponsiveContainer>
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>Sales</Text>
+                    <Text style={styles.headerSubtitle}>Track and manage your sales</Text>
+                </View>
 
-            <View style={styles.content}>
-                <Button
-                    title="+ Record New Sale"
-                    onPress={() => router.push('/sale/add')}
-                    variant="primary"
-                    style={styles.addButton}
-                />
+                <View style={styles.content}>
+                    <Button
+                        title="+ Record New Sale"
+                        onPress={() => router.push('/sale/add')}
+                        variant="primary"
+                        style={styles.addButton}
+                    />
 
-                {sales.length === 0 && !loading ? (
-                    <EmptyState
-                        icon={<Ionicons name="cart-outline" size={64} color={colors.textTertiary} />}
-                        title="No sales yet"
-                        message="Record your first sale to see it here"
-                        actionLabel="Record Sale"
-                        onAction={() => router.push('/sale/add')}
-                    />
-                ) : (
-                    <FlatList
-                        data={sales}
-                        renderItem={renderSaleItem}
-                        keyExtractor={(item) => item.id}
-                        contentContainerStyle={styles.listContent}
-                        refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-                        }
-                    />
-                )}
-            </View>
-        </SafeAreaView>
+                    {sales.length === 0 && !loading ? (
+                        <EmptyState
+                            icon={<Ionicons name="cart-outline" size={64} color={colors.textTertiary} />}
+                            title="No sales yet"
+                            message="Record your first sale to see it here"
+                            actionLabel="Record Sale"
+                            onAction={() => router.push('/sale/add')}
+                        />
+                    ) : (
+                        <FlatList
+                            data={sales}
+                            renderItem={renderSaleItem}
+                            keyExtractor={(item) => item.id}
+                            contentContainerStyle={styles.listContent}
+                            refreshControl={
+                                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+                            }
+                        />
+                    )}
+                </View>
+            </SafeAreaView>
+        </ResponsiveContainer>
     );
 }
 
