@@ -3,10 +3,11 @@
  * Display when lists are empty
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors, Spacing, Typography } from '../constants/theme';
+import { Spacing, Typography } from '../constants/theme';
 import { Button } from './Button';
+import { useSettings } from '../contexts/SettingsContext';
 
 interface EmptyStateProps {
     icon: React.ReactNode;
@@ -23,6 +24,9 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     actionLabel,
     onAction,
 }) => {
+    const { colors } = useSettings();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     return (
         <View style={styles.container}>
             <View style={styles.iconContainer}>{icon}</View>
@@ -40,7 +44,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         alignItems: 'center',
@@ -54,13 +58,13 @@ const styles = StyleSheet.create({
     title: {
         fontSize: Typography.xl,
         fontWeight: Typography.bold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         marginBottom: Spacing.sm,
         textAlign: 'center',
     },
     message: {
         fontSize: Typography.base,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
         textAlign: 'center',
         marginBottom: Spacing.xl,
     },

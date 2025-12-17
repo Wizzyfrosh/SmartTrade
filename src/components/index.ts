@@ -9,3 +9,5 @@ export { Button } from './Button';
 export { Input } from './Input';
 export { EmptyState } from './EmptyState';
 export { SyncIndicator } from './SyncIndicator';
+export * from './CurvedHeader';
+export { CountryFlag } from './CountryFlag';

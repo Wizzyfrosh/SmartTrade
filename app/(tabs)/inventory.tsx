@@ -1,9 +1,4 @@
-/**
- * Inventory Screen
- * Manage products and stock levels
- */
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -13,13 +8,16 @@ import {
     TextInput,
     Platform,
     StatusBar,
+    Image,
+    Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
+import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { StatCard, Card, EmptyState, Button } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
 import { formatCurrency } from '../../src/utils/currency';
+import { useSettings } from '../../src/contexts/SettingsContext';
 import type { Product } from '../../src/types';
 
 export default function Inventory() {
@@ -27,11 +25,21 @@ export default function Inventory() {
     const [products, setProducts] = useState<Product[]>([]);
     const [stats, setStats] = useState<any>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [currencyCode] = useState('NGN');
+
+    const { currency, notificationsEnabled, lowStockThreshold, colors } = useSettings();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
         loadInventory();
     }, []);
+
+    // Notification Logic for Low Stock
+    useEffect(() => {
+        if (notificationsEnabled && stats?.lowStockItems > 0) {
+            // In a real app, this would be a local notification
+            console.log(`[Notification] You have ${stats.lowStockItems} low stock items.`);
+        }
+    }, [stats, notificationsEnabled]);
 
     const loadInventory = async () => {
         try {
@@ -56,6 +64,19 @@ export default function Inventory() {
         }
     };
 
+    const handleProductPress = (product: Product) => {
+        router.push({
+            pathname: '/product/add',
+            params: { id: product.id }
+        });
+    };
+
+    const getThreshold = (product: Product) => {
+        return product.lowStockThreshold !== undefined
+            ? product.lowStockThreshold
+            : lowStockThreshold;
+    };
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -76,18 +97,20 @@ export default function Inventory() {
                 <View style={styles.statsGrid}>
                     <View style={styles.statHalf}>
                         <StatCard
-                            icon={<Ionicons name="cube" size={24} color={Colors.blue} />}
+                            icon={<Ionicons name="cube" size={24} color={colors.blue} />}
                             label="Total Products"
                             value={stats?.totalProducts || 0}
-                            backgroundColor={Colors.cardBackground}
+                            backgroundColor={colors.cardBackground}
+                            iconColor={colors.blue}
                         />
                     </View>
                     <View style={styles.statHalf}>
                         <StatCard
-                            icon={<Ionicons name="warning" size={24} color={Colors.orange} />}
+                            icon={<Ionicons name="warning" size={24} color={colors.orange} />}
                             label="Low Stock"
                             value={stats?.lowStockItems || 0}
-                            backgroundColor={Colors.orangeBg}
+                            backgroundColor={colors.orangeBg}
+                            iconColor={colors.orange}
                         />
                     </View>
                 </View>
@@ -95,31 +118,33 @@ export default function Inventory() {
                 <View style={styles.statsGrid}>
                     <View style={styles.statHalf}>
                         <StatCard
-                            icon={<Ionicons name="close-circle" size={24} color={Colors.red} />}
+                            icon={<Ionicons name="close-circle" size={24} color={colors.red} />}
                             label="Out of Stock"
                             value={stats?.outOfStockItems || 0}
-                            backgroundColor={Colors.redBg}
+                            backgroundColor={colors.redBg}
+                            iconColor={colors.red}
                         />
                     </View>
                     <View style={styles.statHalf}>
                         <StatCard
-                            icon={<Ionicons name="cash" size={24} color={Colors.primary} />}
+                            icon={<Ionicons name="cash" size={24} color={colors.primary} />}
                             label="Stock Value"
-                            value={formatCurrency(stats?.stockValue || 0, currencyCode)}
-                            backgroundColor={Colors.mintBg}
+                            value={formatCurrency(stats?.stockValue || 0, currency)}
+                            backgroundColor={colors.mintBg}
+                            iconColor={colors.primary}
                         />
                     </View>
                 </View>
 
                 {/* Search Bar */}
                 <View style={styles.searchContainer}>
-                    <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
+                    <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
                         placeholder="Search products by name or SKU..."
                         value={searchQuery}
                         onChangeText={handleSearch}
-                        placeholderTextColor={Colors.textTertiary}
+                        placeholderTextColor={colors.textTertiary}
                     />
                 </View>
 
@@ -127,11 +152,11 @@ export default function Inventory() {
                 <View style={styles.filters}>
                     <TouchableOpacity style={styles.filterButton}>
                         <Text style={styles.filterText}>All Categories</Text>
-                        <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+                        <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.filterButton}>
                         <Text style={styles.filterText}>All Stock</Text>
-                        <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+                        <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
                     </TouchableOpacity>
                 </View>
 
@@ -139,7 +164,7 @@ export default function Inventory() {
                 {products.length === 0 ? (
                     <Card>
                         <EmptyState
-                            icon={<Ionicons name="cube-outline" size={64} color={Colors.textTertiary} />}
+                            icon={<Ionicons name="cube-outline" size={64} color={colors.textTertiary} />}
                             title="No products yet"
                             message="Start by adding your first product to inventory"
                             actionLabel="Add Product"
@@ -148,32 +173,44 @@ export default function Inventory() {
                     </Card>
                 ) : (
                     <View style={styles.productsList}>
-                        {products.map((product) => (
-                            <Card key={product.id} style={styles.productCard}>
-                                <View style={styles.productRow}>
-                                    <View style={styles.productIcon}>
-                                        <Ionicons name="cube" size={24} color={Colors.blue} />
-                                    </View>
-                                    <View style={styles.productInfo}>
-                                        <Text style={styles.productName}>{product.name}</Text>
-                                        <Text style={styles.productSKU}>SKU: {product.sku || 'N/A'}</Text>
-                                        <Text style={styles.productPrice}>
-                                            {formatCurrency(product.sellingPrice, currencyCode)}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.productStock}>
-                                        <Text style={[
-                                            styles.stockQuantity,
-                                            product.stockQuantity === 0 && styles.stockOut,
-                                            product.stockQuantity <= product.lowStockThreshold && product.stockQuantity > 0 && styles.stockLow,
-                                        ]}>
-                                            {product.stockQuantity}
-                                        </Text>
-                                        <Text style={styles.stockLabel}>in stock</Text>
-                                    </View>
-                                </View>
-                            </Card>
-                        ))}
+                        {products.map((product) => {
+                            const threshold = getThreshold(product);
+                            const isLowStock = product.stockQuantity <= threshold && product.stockQuantity > 0;
+                            const isOutStock = product.stockQuantity === 0;
+
+                            return (
+                                <TouchableOpacity key={product.id} onPress={() => handleProductPress(product)}>
+                                    <Card style={styles.productCard}>
+                                        <View style={styles.productRow}>
+                                            <View style={styles.productIcon}>
+                                                {product.imageUrl ? (
+                                                    <Image source={{ uri: product.imageUrl }} style={styles.productImage} />
+                                                ) : (
+                                                    <Ionicons name="cube" size={24} color={colors.blue} />
+                                                )}
+                                            </View>
+                                            <View style={styles.productInfo}>
+                                                <Text style={styles.productName}>{product.name}</Text>
+                                                <Text style={styles.productSKU}>SKU: {product.sku || 'N/A'}</Text>
+                                                <Text style={styles.productPrice}>
+                                                    {formatCurrency(product.sellingPrice, currency)}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.productStock}>
+                                                <Text style={[
+                                                    styles.stockQuantity,
+                                                    isOutStock && styles.stockOut,
+                                                    isLowStock && styles.stockLow,
+                                                ]}>
+                                                    {product.stockQuantity}
+                                                </Text>
+                                                <Text style={styles.stockLabel}>in stock</Text>
+                                            </View>
+                                        </View>
+                                    </Card>
+                                </TouchableOpacity>
+                            );
+                        })}
                     </View>
                 )}
 
@@ -183,10 +220,10 @@ export default function Inventory() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
+        backgroundColor: colors.background,
         paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
     },
     header: {
@@ -197,12 +234,12 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: Typography['2xl'],
         fontWeight: Typography.bold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         marginBottom: Spacing.xs,
     },
     headerSubtitle: {
         fontSize: Typography.sm,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     scrollView: {
         flex: 1,
@@ -224,7 +261,7 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.cardBackground,
+        backgroundColor: colors.cardBackground,
         borderRadius: BorderRadius.md,
         paddingHorizontal: Spacing.md,
         marginBottom: Spacing.md,
@@ -237,7 +274,7 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: Spacing.md,
         fontSize: Typography.base,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     filters: {
         flexDirection: 'row',
@@ -249,16 +286,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: Colors.cardBackground,
+        backgroundColor: colors.cardBackground,
         paddingVertical: Spacing.md,
         paddingHorizontal: Spacing.md,
         borderRadius: BorderRadius.md,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: colors.border,
     },
     filterText: {
         fontSize: Typography.sm,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     productsList: {
         gap: Spacing.md,
@@ -274,10 +311,16 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: BorderRadius.md,
-        backgroundColor: Colors.blueBg,
+        backgroundColor: colors.blueBg,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: Spacing.md,
+        overflow: 'hidden',
+    },
+    productImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
     },
     productInfo: {
         flex: 1,
@@ -285,18 +328,18 @@ const styles = StyleSheet.create({
     productName: {
         fontSize: Typography.base,
         fontWeight: Typography.semibold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         marginBottom: 2,
     },
     productSKU: {
         fontSize: Typography.xs,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
         marginBottom: 2,
     },
     productPrice: {
         fontSize: Typography.sm,
         fontWeight: Typography.medium,
-        color: Colors.primary,
+        color: colors.primary,
     },
     productStock: {
         alignItems: 'center',
@@ -304,16 +347,16 @@ const styles = StyleSheet.create({
     stockQuantity: {
         fontSize: Typography.xl,
         fontWeight: Typography.bold,
-        color: Colors.primary,
+        color: colors.primary,
     },
     stockLow: {
-        color: Colors.orange,
+        color: colors.orange,
     },
     stockOut: {
-        color: Colors.red,
+        color: colors.red,
     },
     stockLabel: {
         fontSize: Typography.xs,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
 });

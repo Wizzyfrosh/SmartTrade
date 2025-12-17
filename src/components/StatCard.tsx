@@ -3,9 +3,10 @@
  * Dashboard metric card with icon and value
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors, BorderRadius, Spacing, Typography, Shadows } from '../constants/theme';
+import { BorderRadius, Spacing, Typography, Shadows } from '../constants/theme';
+import { useSettings } from '../contexts/SettingsContext';
 
 interface StatCardProps {
     icon: React.ReactNode;
@@ -20,19 +21,25 @@ export const StatCard: React.FC<StatCardProps> = ({
     icon,
     label,
     value,
-    backgroundColor = Colors.cardBackground,
-    iconColor = Colors.primary,
+    backgroundColor,
+    iconColor,
     onPress,
 }) => {
+    const { colors } = useSettings();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const Container = onPress ? TouchableOpacity : View;
+
+    // Defaults
+    const bg = backgroundColor || colors.cardBackground;
+    const iColor = iconColor || colors.primary;
 
     return (
         <Container
-            style={[styles.container, { backgroundColor }]}
+            style={[styles.container, { backgroundColor: bg }]}
             onPress={onPress}
             activeOpacity={onPress ? 0.7 : 1}
         >
-            <View style={[styles.iconContainer, { backgroundColor: iconColor + '20' }]}>
+            <View style={[styles.iconContainer, { backgroundColor: iColor + '20' }]}>
                 {icon}
             </View>
             <View style={styles.content}>
@@ -43,7 +50,7 @@ export const StatCard: React.FC<StatCardProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         flexDirection: 'row',
@@ -66,11 +73,11 @@ const styles = StyleSheet.create({
     value: {
         fontSize: Typography['2xl'],
         fontWeight: Typography.bold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         marginBottom: 2,
     },
     label: {
         fontSize: Typography.sm,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
 });

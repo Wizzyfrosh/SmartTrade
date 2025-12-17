@@ -3,9 +3,10 @@
  * Reusable text input with label and validation
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TextInput, StyleSheet, TextInputProps, TouchableOpacity } from 'react-native';
-import { Colors, BorderRadius, Spacing, Typography } from '../constants/theme';
+import { BorderRadius, Spacing, Typography } from '../constants/theme';
+import { useSettings } from '../contexts/SettingsContext';
 
 interface InputProps extends TextInputProps {
     label?: string;
@@ -26,6 +27,9 @@ export const Input: React.FC<InputProps> = ({
     onRightIconPress,
     ...props
 }) => {
+    const { colors } = useSettings();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     return (
         <View style={styles.container}>
             {label && (
@@ -43,7 +47,7 @@ export const Input: React.FC<InputProps> = ({
                         rightIcon ? styles.inputWithRightIcon : undefined,
                         style
                     ]}
-                    placeholderTextColor={Colors.textTertiary}
+                    placeholderTextColor={colors.textTertiary}
                     {...props}
                 />
                 {rightIcon && (
@@ -57,29 +61,29 @@ export const Input: React.FC<InputProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         marginBottom: Spacing.md,
     },
     label: {
         fontSize: Typography.sm,
         fontWeight: Typography.medium,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         marginBottom: Spacing.xs,
     },
     required: {
-        color: Colors.error,
+        color: colors.error,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.background,
+        backgroundColor: colors.cardBackground, // Changed from background to cardBackground for better contrast in dark mode
         borderRadius: BorderRadius.md,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: colors.border,
     },
     inputError: {
-        borderColor: Colors.error,
+        borderColor: colors.error,
     },
     icon: {
         paddingLeft: Spacing.md,
@@ -92,7 +96,7 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.md,
         paddingHorizontal: Spacing.md,
         fontSize: Typography.base,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     inputWithIcon: {
         paddingLeft: Spacing.sm,
@@ -102,7 +106,7 @@ const styles = StyleSheet.create({
     },
     errorText: {
         fontSize: Typography.xs,
-        color: Colors.error,
+        color: colors.error,
         marginTop: Spacing.xs,
     },
 });

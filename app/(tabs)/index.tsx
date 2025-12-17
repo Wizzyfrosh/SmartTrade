@@ -1,9 +1,4 @@
-/**
- * Dashboard Screen
- * Main screen showing business overview and quick actions
- */
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
@@ -15,23 +10,26 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
+import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { StatCard, Card, EmptyState, SyncIndicator } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
 import { formatCurrency } from '../../src/utils/currency';
 import { getGreeting } from '../../src/utils/date';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { useSettings } from '../../src/contexts/SettingsContext';
 import type { Product, Sale } from '../../src/types';
 
 export default function Dashboard() {
     const router = useRouter();
     const { user } = useAuth();
+    const { currency, colors } = useSettings();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [stats, setStats] = useState<any>(null);
     const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
     const [todaySales, setTodaySales] = useState<Sale[]>([]);
-    const [currencyCode] = useState('NGN'); // TODO: Get from settings
+
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const userName = user?.user_metadata?.full_name?.split(' ')[0] || 'User';
 
@@ -82,7 +80,7 @@ export default function Dashboard() {
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
                 }
             >
                 {/* Header Section */}
@@ -100,37 +98,37 @@ export default function Dashboard() {
                 <View style={styles.statsGrid}>
                     <View style={styles.statsRow}>
                         <StatCard
-                            icon={<Ionicons name="cash" size={24} color={Colors.primary} />}
+                            icon={<Ionicons name="cash" size={24} color={colors.primary} />}
                             label="Today's Revenue"
-                            value={formatCurrency(stats?.todayRevenue || 0, currencyCode)}
-                            backgroundColor={Colors.mintBg}
-                            iconColor={Colors.primary}
+                            value={formatCurrency(stats?.todayRevenue || 0, currency)}
+                            backgroundColor={colors.mintBg}
+                            iconColor={colors.primary}
                             onPress={() => router.push('/(tabs)/sales')}
                         />
                         <StatCard
-                            icon={<Ionicons name="trending-up" size={24} color={Colors.blue} />}
+                            icon={<Ionicons name="trending-up" size={24} color={colors.blue} />}
                             label="Today's Profit"
-                            value={formatCurrency(stats?.todayProfit || 0, currencyCode)}
-                            backgroundColor={Colors.blueBg}
-                            iconColor={Colors.blue}
+                            value={formatCurrency(stats?.todayProfit || 0, currency)}
+                            backgroundColor={colors.blueBg}
+                            iconColor={colors.blue}
                             onPress={() => router.push('/(tabs)/reports')}
                         />
                     </View>
                     <View style={styles.statsRow}>
                         <StatCard
-                            icon={<Ionicons name="cube" size={24} color={Colors.orange} />}
+                            icon={<Ionicons name="cube" size={24} color={colors.orange} />}
                             label="Total Products"
                             value={stats?.totalProducts || 0}
-                            backgroundColor={Colors.orangeBg}
-                            iconColor={Colors.orange}
+                            backgroundColor={colors.orangeBg}
+                            iconColor={colors.orange}
                             onPress={() => router.push('/(tabs)/inventory')}
                         />
                         <StatCard
-                            icon={<Ionicons name="alert-circle" size={24} color={Colors.red} />}
+                            icon={<Ionicons name="alert-circle" size={24} color={colors.red} />}
                             label="Low Stock"
                             value={stats?.lowStockItems || 0}
-                            backgroundColor={Colors.redBg}
-                            iconColor={Colors.red}
+                            backgroundColor={colors.redBg}
+                            iconColor={colors.red}
                             onPress={() => router.push('/(tabs)/inventory')}
                         />
                     </View>
@@ -144,8 +142,8 @@ export default function Dashboard() {
                             style={styles.actionButton}
                             onPress={() => router.push('/sale/add')}
                         >
-                            <View style={[styles.actionIcon, { backgroundColor: Colors.primary }]}>
-                                <Ionicons name="cart-outline" size={24} color={Colors.textWhite} />
+                            <View style={[styles.actionIcon, { backgroundColor: colors.primary }]}>
+                                <Ionicons name="cart-outline" size={24} color={colors.textWhite} />
                             </View>
                             <Text style={styles.actionLabel}>Record Sale</Text>
                         </TouchableOpacity>
@@ -154,8 +152,8 @@ export default function Dashboard() {
                             style={styles.actionButton}
                             onPress={() => router.push('/product/add')}
                         >
-                            <View style={[styles.actionIcon, { backgroundColor: Colors.blue }]}>
-                                <Ionicons name="add-circle-outline" size={24} color={Colors.textWhite} />
+                            <View style={[styles.actionIcon, { backgroundColor: colors.blue }]}>
+                                <Ionicons name="add-circle-outline" size={24} color={colors.textWhite} />
                             </View>
                             <Text style={styles.actionLabel}>Add Product</Text>
                         </TouchableOpacity>
@@ -164,8 +162,8 @@ export default function Dashboard() {
                             style={styles.actionButton}
                             onPress={() => router.push('/(tabs)/inventory')}
                         >
-                            <View style={[styles.actionIcon, { backgroundColor: Colors.orange }]}>
-                                <Ionicons name="search-outline" size={24} color={Colors.textWhite} />
+                            <View style={[styles.actionIcon, { backgroundColor: colors.orange }]}>
+                                <Ionicons name="search-outline" size={24} color={colors.textWhite} />
                             </View>
                             <Text style={styles.actionLabel}>Search Item</Text>
                         </TouchableOpacity>
@@ -174,8 +172,8 @@ export default function Dashboard() {
                             style={styles.actionButton}
                             onPress={() => router.push('/(tabs)/reports')}
                         >
-                            <View style={[styles.actionIcon, { backgroundColor: Colors.purple }]}>
-                                <Ionicons name="bar-chart-outline" size={24} color={Colors.textWhite} />
+                            <View style={[styles.actionIcon, { backgroundColor: colors.purple }]}>
+                                <Ionicons name="bar-chart-outline" size={24} color={colors.textWhite} />
                             </View>
                             <Text style={styles.actionLabel}>View Reports</Text>
                         </TouchableOpacity>
@@ -195,7 +193,7 @@ export default function Dashboard() {
                             <Card key={product.id} style={styles.alertCard} onPress={() => { }}>
                                 <View style={styles.alertContent}>
                                     <View style={styles.alertIcon}>
-                                        <Ionicons name="warning" size={20} color={Colors.warning} />
+                                        <Ionicons name="warning" size={20} color={colors.warning} />
                                     </View>
                                     <View style={styles.alertInfo}>
                                         <Text style={styles.alertProductName}>{product.name}</Text>
@@ -226,7 +224,7 @@ export default function Dashboard() {
 
                     {todaySales.length === 0 ? (
                         <EmptyState
-                            icon={<Ionicons name="cart-outline" size={48} color={Colors.textTertiary} />}
+                            icon={<Ionicons name="cart-outline" size={48} color={colors.textTertiary} />}
                             title="No sales today"
                             message="Record your first sale to see it here."
                             actionLabel="Record Sale"
@@ -236,18 +234,18 @@ export default function Dashboard() {
                         todaySales.map((sale) => (
                             <Card key={sale.id} style={styles.saleCard} onPress={() => { }}>
                                 <View style={styles.saleContent}>
-                                    <View style={[styles.saleIcon, { backgroundColor: Colors.mintBg }]}>
-                                        <Ionicons name="checkmark" size={16} color={Colors.primary} />
+                                    <View style={[styles.saleIcon, { backgroundColor: colors.mintBg }]}>
+                                        <Ionicons name="checkmark" size={16} color={colors.primary} />
                                     </View>
                                     <View style={styles.saleInfo}>
-                                        <Text style={styles.saleAmount}>{formatCurrency(sale.totalRevenue, currencyCode)}</Text>
+                                        <Text style={styles.saleAmount}>{formatCurrency(sale.totalRevenue, currency)}</Text>
                                         <Text style={styles.saleTime}>
                                             {new Date(sale.saleDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </Text>
                                     </View>
                                     <View style={styles.saleDetails}>
                                         <Text style={styles.saleQuantity}>{sale.quantity} items</Text>
-                                        <Text style={styles.saleProfit}>+{formatCurrency(sale.profit, currencyCode)} profit</Text>
+                                        <Text style={styles.saleProfit}>+{formatCurrency(sale.profit, currency)} profit</Text>
                                     </View>
                                 </View>
                             </Card>
@@ -261,10 +259,10 @@ export default function Dashboard() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
+        backgroundColor: colors.background,
     },
     loadingContainer: {
         flex: 1,
@@ -274,7 +272,7 @@ const styles = StyleSheet.create({
     loadingText: {
         marginTop: Spacing.md,
         fontSize: Typography.base,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     scrollView: {
         flex: 1,
@@ -291,12 +289,12 @@ const styles = StyleSheet.create({
     greeting: {
         fontSize: Typography['2xl'],
         fontWeight: Typography.bold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         marginBottom: Spacing.xs,
     },
     date: {
         fontSize: Typography.sm,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     statsGrid: {
         gap: Spacing.md,
@@ -318,11 +316,11 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: Typography.lg,
         fontWeight: Typography.bold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     seeAll: {
         fontSize: Typography.sm,
-        color: Colors.primary,
+        color: colors.primary,
         fontWeight: Typography.medium,
     },
     actionGrid: {
@@ -333,7 +331,7 @@ const styles = StyleSheet.create({
     actionButton: {
         flexBasis: '47%',
         flexGrow: 1,
-        backgroundColor: Colors.cardBackground,
+        backgroundColor: colors.cardBackground,
         padding: Spacing.md,
         borderRadius: BorderRadius.lg,
         alignItems: 'center',
@@ -350,7 +348,7 @@ const styles = StyleSheet.create({
     actionLabel: {
         fontSize: Typography.sm,
         fontWeight: Typography.medium,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     alertCard: {
         marginBottom: Spacing.sm,
@@ -364,7 +362,7 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: BorderRadius.full,
-        backgroundColor: Colors.orangeBg,
+        backgroundColor: colors.orangeBg,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: Spacing.md,
@@ -375,24 +373,24 @@ const styles = StyleSheet.create({
     alertProductName: {
         fontSize: Typography.base,
         fontWeight: Typography.semibold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         marginBottom: 2,
     },
     alertProductStock: {
         fontSize: Typography.sm,
-        color: Colors.error,
+        color: colors.error,
         fontWeight: Typography.medium,
     },
     restockButton: {
         paddingVertical: Spacing.xs,
         paddingHorizontal: Spacing.md,
-        backgroundColor: Colors.primary + '10',
+        backgroundColor: colors.primary + '10',
         borderRadius: BorderRadius.full,
     },
     restockText: {
         fontSize: Typography.xs,
         fontWeight: Typography.medium,
-        color: Colors.primary,
+        color: colors.primary,
     },
     saleCard: {
         marginBottom: Spacing.sm,
@@ -416,23 +414,23 @@ const styles = StyleSheet.create({
     saleAmount: {
         fontSize: Typography.base,
         fontWeight: Typography.bold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     saleTime: {
         fontSize: Typography.xs,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     saleDetails: {
         alignItems: 'flex-end',
     },
     saleQuantity: {
         fontSize: Typography.sm,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         fontWeight: Typography.medium,
     },
     saleProfit: {
         fontSize: Typography.xs,
-        color: Colors.success,
+        color: colors.success,
         fontWeight: Typography.medium,
     },
     footerSpacer: {

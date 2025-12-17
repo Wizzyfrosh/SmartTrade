@@ -7,6 +7,7 @@ import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
+import { SettingsProvider } from '../src/contexts/SettingsContext';
 import { Colors } from '../src/constants/theme';
 
 function InitialLayout() {
@@ -18,8 +19,9 @@ function InitialLayout() {
         if (loading) return;
 
         const inAuthGroup = segments[0] === 'auth';
+        const isPrivacyPolicy = segments[0] === 'privacy-policy';
 
-        if (!session && !inAuthGroup) {
+        if (!session && !inAuthGroup && !isPrivacyPolicy) {
             // Redirect to the sign-in page.
             router.replace('/auth/login');
         } else if (session && inAuthGroup) {
@@ -42,7 +44,9 @@ function InitialLayout() {
 export default function RootLayout() {
     return (
         <AuthProvider>
-            <InitialLayout />
+            <SettingsProvider>
+                <InitialLayout />
+            </SettingsProvider>
         </AuthProvider>
     );
 }

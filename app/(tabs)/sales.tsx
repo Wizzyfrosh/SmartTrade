@@ -1,17 +1,13 @@
-/**
- * Sales Screen
- * View and record sales transactions
- */
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Spacing, Typography, BorderRadius } from '../../src/constants/theme';
+import { Spacing, Typography, BorderRadius } from '../../src/constants/theme';
 import { Button, EmptyState, Card } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
 import { formatCurrency } from '../../src/utils/currency';
+import { useSettings } from '../../src/contexts/SettingsContext';
 import type { Sale } from '../../src/types';
 
 export default function Sales() {
@@ -19,7 +15,8 @@ export default function Sales() {
     const [sales, setSales] = useState<Sale[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [currencyCode] = useState('NGN');
+    const { currency, colors } = useSettings();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
         loadSales();
@@ -46,18 +43,18 @@ export default function Sales() {
     const renderSaleItem = ({ item }: { item: Sale }) => (
         <Card style={styles.saleCard}>
             <View style={styles.saleContent}>
-                <View style={[styles.saleIcon, { backgroundColor: Colors.mintBg }]}>
-                    <Ionicons name="checkmark" size={20} color={Colors.primary} />
+                <View style={[styles.saleIcon, { backgroundColor: colors.mintBg }]}>
+                    <Ionicons name="checkmark" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.saleInfo}>
-                    <Text style={styles.saleAmount}>{formatCurrency(item.totalRevenue, currencyCode)}</Text>
+                    <Text style={styles.saleAmount}>{formatCurrency(item.totalRevenue, currency)}</Text>
                     <Text style={styles.saleDate}>
                         {new Date(item.saleDate).toLocaleDateString()} • {new Date(item.saleDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                 </View>
                 <View style={styles.saleDetails}>
                     <Text style={styles.saleQuantity}>{item.quantity} items</Text>
-                    <Text style={styles.saleProfit}>+{formatCurrency(item.profit, currencyCode)} profit</Text>
+                    <Text style={styles.saleProfit}>+{formatCurrency(item.profit, currency)} profit</Text>
                 </View>
             </View>
         </Card>
@@ -80,7 +77,7 @@ export default function Sales() {
 
                 {sales.length === 0 && !loading ? (
                     <EmptyState
-                        icon={<Ionicons name="cart-outline" size={64} color={Colors.textTertiary} />}
+                        icon={<Ionicons name="cart-outline" size={64} color={colors.textTertiary} />}
                         title="No sales yet"
                         message="Record your first sale to see it here"
                         actionLabel="Record Sale"
@@ -93,7 +90,7 @@ export default function Sales() {
                         keyExtractor={(item) => item.id}
                         contentContainerStyle={styles.listContent}
                         refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
                         }
                     />
                 )}
@@ -102,10 +99,10 @@ export default function Sales() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
+        backgroundColor: colors.background,
     },
     header: {
         paddingHorizontal: Spacing.lg,
@@ -115,12 +112,12 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: Typography['2xl'],
         fontWeight: Typography.bold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         marginBottom: Spacing.xs,
     },
     headerSubtitle: {
         fontSize: Typography.sm,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     content: {
         flex: 1,
@@ -154,23 +151,23 @@ const styles = StyleSheet.create({
     saleAmount: {
         fontSize: Typography.lg,
         fontWeight: Typography.bold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     saleDate: {
         fontSize: Typography.xs,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     saleDetails: {
         alignItems: 'flex-end',
     },
     saleQuantity: {
         fontSize: Typography.sm,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         fontWeight: Typography.medium,
     },
     saleProfit: {
         fontSize: Typography.xs,
-        color: Colors.success,
+        color: colors.success,
         fontWeight: Typography.medium,
     },
 });

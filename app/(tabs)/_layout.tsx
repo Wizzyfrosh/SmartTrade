@@ -6,19 +6,22 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../src/constants/theme';
+import { Spacing, Typography, Shadows } from '../../src/constants/theme';
+import { useSettings } from '../../src/contexts/SettingsContext';
 
 export default function TabLayout() {
+    const { colors } = useSettings();
+
     return (
         <Tabs
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: Colors.primary,
-                tabBarInactiveTintColor: Colors.textSecondary,
+                tabBarActiveTintColor: colors.primary,
+                tabBarInactiveTintColor: colors.textSecondary,
                 tabBarStyle: {
-                    backgroundColor: Colors.cardBackground,
+                    backgroundColor: colors.cardBackground,
                     borderTopWidth: 1,
-                    borderTopColor: Colors.border,
+                    borderTopColor: colors.border,
                     paddingBottom: 8,
                     paddingTop: 8,
                     height: 60,
@@ -34,7 +37,7 @@ export default function TabLayout() {
                 options={{
                     title: 'Dashboard',
                     tabBarIcon: ({ color, size }) => (
-                        <View style={{ backgroundColor: color === Colors.primary ? Colors.mintBg : 'transparent', padding: 8, borderRadius: 12 }}>
+                        <View style={{ backgroundColor: color === colors.primary ? colors.mintBg : 'transparent', padding: 8, borderRadius: 12 }}>
                             <Ionicons name="grid" size={20} color={color} />
                         </View>
                     ),
@@ -45,7 +48,7 @@ export default function TabLayout() {
                 options={{
                     title: 'Inventory',
                     tabBarIcon: ({ color, size }) => (
-                        <View style={{ backgroundColor: color === Colors.primary ? Colors.blueBg : 'transparent', padding: 8, borderRadius: 12 }}>
+                        <View style={{ backgroundColor: color === colors.primary ? colors.blueBg : 'transparent', padding: 8, borderRadius: 12 }}>
                             <Ionicons name="cube" size={20} color={color} />
                         </View>
                     ),
@@ -56,7 +59,7 @@ export default function TabLayout() {
                 options={{
                     title: 'Sales',
                     tabBarIcon: ({ color, size }) => (
-                        <View style={{ backgroundColor: color === Colors.primary ? Colors.orangeBg : 'transparent', padding: 8, borderRadius: 12 }}>
+                        <View style={{ backgroundColor: color === colors.primary ? colors.orangeBg : 'transparent', padding: 8, borderRadius: 12 }}>
                             <Ionicons name="cart" size={20} color={color} />
                         </View>
                     ),
@@ -67,7 +70,7 @@ export default function TabLayout() {
                 options={{
                     title: 'Reports',
                     tabBarIcon: ({ color, size }) => (
-                        <View style={{ backgroundColor: color === Colors.primary ? Colors.purpleBg : 'transparent', padding: 8, borderRadius: 12 }}>
+                        <View style={{ backgroundColor: color === colors.primary ? colors.purpleBg : 'transparent', padding: 8, borderRadius: 12 }}>
                             <Ionicons name="bar-chart" size={20} color={color} />
                         </View>
                     ),

@@ -1,11 +1,10 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Alert } from 'react-native';
+import { StyleSheet, Alert, Image } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { supabase } from '../services/supabase/client';
 import { Button } from './Button';
 import { makeRedirectUri } from 'expo-auth-session';
-import { Ionicons } from '@expo/vector-icons';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -50,7 +49,7 @@ export const GoogleAuthButton = () => {
             variant="outline"
             style={styles.button}
             disabled={!request}
-            icon={<Ionicons name="logo-google" size={20} color="#DB4437" />}
+            icon={<Image source={require('../../assets/icons/google_icon.png')} style={styles.googleIcon} />}
         />
     );
 };
@@ -60,5 +59,10 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         backgroundColor: '#fff',
         borderColor: '#ddd',
+    },
+    googleIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 4,
     },
 });

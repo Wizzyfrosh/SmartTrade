@@ -3,7 +3,7 @@
  * Based on the provided design screenshots
  */
 
-export const Colors = {
+export const LightColors = {
     // Primary colors
     primary: '#10B981', // Green - main brand color
     primaryLight: '#34D399',
@@ -12,6 +12,8 @@ export const Colors = {
     // Accent colors
     orange: '#F97316',
     orangeLight: '#FB923C',
+    lightOrange: '#FFEDD5',
+    headerBackground: '#FED7AA',
     purple: '#A855F7',
     purpleLight: '#C084FC',
     blue: '#3B82F6',
@@ -20,7 +22,7 @@ export const Colors = {
 
     // Backgrounds
     background: '#F9FAFB',
-    backgroundDark: '#111827',
+    backgroundDark: '#111827', // Used for specific dark elements in light mode
     cardBackground: '#FFFFFF',
     cardBackgroundDark: '#1F2937',
 
@@ -53,6 +55,61 @@ export const Colors = {
     syncing: '#F59E0B',
     unsynced: '#EF4444',
 };
+
+export const DarkColors = {
+    // Primary colors - slightly adjusted for dark mode if needed, but keeping brand mostly same
+    primary: '#10B981',
+    primaryLight: '#34D399',
+    primaryDark: '#059669',
+
+    // Accent colors
+    orange: '#F97316',
+    orangeLight: '#FB923C',
+    lightOrange: '#9A3412', // Darker orange for background/contrast
+    headerBackground: '#7C2D12', // Darker header
+    purple: '#A855F7',
+    purpleLight: '#C084FC',
+    blue: '#3B82F6',
+    blueLight: '#60A5FA',
+    red: '#EF4444',
+
+    // Backgrounds
+    background: '#111827', // Dark background
+    backgroundDark: '#000000',
+    cardBackground: '#1F2937', // Dark card
+    cardBackgroundDark: '#000000',
+
+    // Card accent backgrounds - darkened for dark mode
+    mintBg: '#064E3B',
+    orangeBg: '#7C2D12',
+    purpleBg: '#581C87',
+    blueBg: '#1E3A8A',
+    greenBg: '#064E3B',
+    redBg: '#7F1D1D',
+
+    // Text colors
+    textPrimary: '#F9FAFB', // White-ish
+    textSecondary: '#9CA3AF', // Gray
+    textTertiary: '#6B7280',
+    textWhite: '#FFFFFF',
+
+    // Border colors
+    border: '#374151',
+    borderDark: '#4B5563',
+
+    // Status colors
+    success: '#34D399',
+    warning: '#FBBF24',
+    error: '#F87171',
+    info: '#60A5FA',
+
+    // Sync status
+    synced: '#34D399',
+    syncing: '#FBBF24',
+    unsynced: '#F87171',
+};
+
+export const Colors = LightColors; // Default for backward compatibility until refactor is complete
 
 export const Typography = {
     // Font sizes

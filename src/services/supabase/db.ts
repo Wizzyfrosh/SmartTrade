@@ -1,6 +1,9 @@
 import { supabase } from './client';
 import { Product, Sale } from '../../types';
 
+import { decode } from 'base64-arraybuffer';
+
+
 class SupabaseService {
 
     async getDashboardStats() {
@@ -152,6 +155,85 @@ class SupabaseService {
         }
 
         return this.mapToSale(data);
+    }
+
+    async uploadProductImage(uri: string): Promise<string> {
+        try {
+            const response = await fetch(uri);
+            const blob = await response.blob();
+            const arrayBuffer = await new Response(blob).arrayBuffer();
+
+            const fileName = `${Date.now()}.jpg`;
+            const filePath = `product-images/${fileName}`;
+
+            const { data, error } = await supabase.storage
+                .from('products')
+                .upload(filePath, arrayBuffer, {
+                    contentType: 'image/jpeg',
+                });
+
+            if (error) throw error;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('products')
+                .getPublicUrl(filePath);
+
+            return publicUrl;
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            throw error;
+        }
+    }
+
+    async updateProduct(product: Product): Promise<void> {
+        const { error } = await supabase
+            .from('products')
+            .update({
+                name: product.name,
+                sku: product.sku,
+                category: product.category,
+                cost_price: product.costPrice,
+                selling_price: product.sellingPrice,
+                stock_quantity: product.stockQuantity,
+                low_stock_threshold: product.lowStockThreshold,
+                barcode: product.barcode,
+                image_url: product.imageUrl,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', product.id);
+
+        if (error) {
+            console.error('Error updating product:', error);
+            throw error;
+        }
+    }
+
+    async deleteProduct(id: string): Promise<void> {
+        const { error } = await supabase
+            .from('products')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting product:', error);
+            throw error;
+        }
+    }
+
+    async getSalesByDateRange(startDate: number, endDate: number): Promise<Sale[]> {
+        const { data, error } = await supabase
+            .from('sales')
+            .select('*')
+            .gte('sale_date', startDate)
+            .lte('sale_date', endDate)
+            .order('sale_date', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching sales by date range:', error);
+            return [];
+        }
+
+        return data.map(this.mapToSale);
     }
 
     private mapToProduct(row: any): Product {

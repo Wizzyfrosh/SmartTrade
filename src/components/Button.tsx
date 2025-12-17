@@ -1,11 +1,7 @@
-/**
- * Button Component
- * Reusable button with different variants
- */
-
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
-import { Colors, BorderRadius, Spacing, Typography } from '../constants/theme';
+import { BorderRadius, Spacing, Typography } from '../constants/theme';
+import { useSettings } from '../contexts/SettingsContext';
 
 interface ButtonProps {
     title: string;
@@ -30,6 +26,9 @@ export const Button: React.FC<ButtonProps> = ({
     style,
     textStyle,
 }) => {
+    const { colors } = useSettings();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     const getButtonStyle = (): ViewStyle => {
         const baseStyle: ViewStyle = {
             ...styles.button,
@@ -42,15 +41,15 @@ export const Button: React.FC<ButtonProps> = ({
 
         switch (variant) {
             case 'primary':
-                return { ...baseStyle, backgroundColor: Colors.primary };
+                return { ...baseStyle, backgroundColor: colors.primary };
             case 'secondary':
-                return { ...baseStyle, backgroundColor: Colors.textSecondary };
+                return { ...baseStyle, backgroundColor: colors.textSecondary };
             case 'outline':
-                return { ...baseStyle, backgroundColor: 'transparent', borderWidth: 2, borderColor: Colors.primary };
+                return { ...baseStyle, backgroundColor: 'transparent', borderWidth: 2, borderColor: colors.primary };
             case 'danger':
-                return { ...baseStyle, backgroundColor: Colors.error };
+                return { ...baseStyle, backgroundColor: colors.error };
             default:
-                return { ...baseStyle, backgroundColor: Colors.primary };
+                return { ...baseStyle, backgroundColor: colors.primary };
         }
     };
 
@@ -61,7 +60,7 @@ export const Button: React.FC<ButtonProps> = ({
         };
 
         if (variant === 'outline') {
-            return { ...baseStyle, color: Colors.primary };
+            return { ...baseStyle, color: colors.primary };
         }
 
         return baseStyle;
@@ -75,7 +74,7 @@ export const Button: React.FC<ButtonProps> = ({
             activeOpacity={0.7}
         >
             {loading ? (
-                <ActivityIndicator color={variant === 'outline' ? Colors.primary : Colors.textWhite} />
+                <ActivityIndicator color={variant === 'outline' ? colors.primary : colors.textWhite} />
             ) : (
                 <>
                     {icon}
@@ -88,7 +87,7 @@ export const Button: React.FC<ButtonProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     button: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -108,11 +107,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.xl,
     },
     disabledButton: {
-        backgroundColor: Colors.border,
+        backgroundColor: colors.border,
         opacity: 0.5,
     },
     text: {
-        color: Colors.textWhite,
+        color: colors.textWhite,
         fontWeight: Typography.semibold,
     },
     smallText: {
@@ -120,6 +119,7 @@ const styles = StyleSheet.create({
     },
     mediumText: {
         fontSize: Typography.base,
+        color: colors.textWhite,
     },
     largeText: {
         fontSize: Typography.lg,

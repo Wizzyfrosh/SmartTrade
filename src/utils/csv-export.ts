@@ -3,7 +3,7 @@
  * Generate and export CSV files for reports
  */
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import type { Sale, Product } from '../types';
 import { formatDate, formatDateTime } from './date';
@@ -89,10 +89,10 @@ export const exportSalesReport = async (
 
         // Save to file
         const fileName = `SmartTrade_Sales_Report_${period}_${formatDate(Date.now(), 'yyyy-MM-dd')}.csv`;
-        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+        const fileUri = `${(FileSystem as any).documentDirectory}${fileName}`;
 
         await FileSystem.writeAsStringAsync(fileUri, csv, {
-            encoding: FileSystem.EncodingType.UTF8,
+            encoding: 'utf8',
         });
 
         // Share the file
@@ -156,10 +156,10 @@ export const exportInventory = async (
 
         // Save to file
         const fileName = `SmartTrade_Inventory_${formatDate(Date.now(), 'yyyy-MM-dd')}.csv`;
-        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+        const fileUri = `${(FileSystem as any).documentDirectory}${fileName}`;
 
         await FileSystem.writeAsStringAsync(fileUri, csv, {
-            encoding: FileSystem.EncodingType.UTF8,
+            encoding: 'utf8',
         });
 
         // Share the file

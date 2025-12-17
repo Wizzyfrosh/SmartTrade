@@ -7,6 +7,8 @@ import React from 'react';
 import { View, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '../constants/theme';
 
+import { useSettings } from '../contexts/SettingsContext';
+
 interface CardProps {
     children: React.ReactNode;
     style?: ViewStyle;
@@ -19,18 +21,22 @@ interface CardProps {
 export const Card: React.FC<CardProps> = ({
     children,
     style,
-    backgroundColor = Colors.cardBackground,
+    backgroundColor,
     padding = Spacing.lg,
     noPadding = false,
     onPress,
 }) => {
+    const { colors } = useSettings();
     const Container = onPress ? TouchableOpacity : View;
+
+    // Use passed backgroundColor or default to colors.cardBackground
+    const bgColor = backgroundColor || colors.cardBackground;
 
     return (
         <Container
             style={[
                 styles.card,
-                { backgroundColor, padding: noPadding ? 0 : padding },
+                { backgroundColor: bgColor, padding: noPadding ? 0 : padding },
                 style,
             ]}
             onPress={onPress}

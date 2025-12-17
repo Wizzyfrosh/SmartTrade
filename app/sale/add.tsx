@@ -1,9 +1,4 @@
-/**
- * Record Sale Screen
- * Record a new sale transaction with database integration
- */
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     View,
     Text,
@@ -15,23 +10,48 @@ import {
     FlatList,
     Platform,
     StatusBar,
+    Animated,
+    Easing,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Typography, BorderRadius } from '../../src/constants/theme';
-import { Input, Button, Card } from '../../src/components';
+import { Spacing, Typography, BorderRadius } from '../../src/constants/theme';
+import { Input, Button, Card, CurvedHeader } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
 import { formatCurrency } from '../../src/utils/currency';
 import type { Product } from '../../src/types';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { useSettings } from '../../src/contexts/SettingsContext';
 
 export default function AddSale() {
     const router = useRouter();
     const { user } = useAuth();
+    const { currency, colors } = useSettings();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const [loading, setLoading] = useState(false);
     const [products, setProducts] = useState<Product[]>([]);
     const [showProductPicker, setShowProductPicker] = useState(false);
-    const [currencyCode] = useState('NGN');
+
+    // Animation values
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(50)).current;
+
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 600,
+                useNativeDriver: true,
+                easing: Easing.out(Easing.cubic),
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 600,
+                useNativeDriver: true,
+                easing: Easing.out(Easing.cubic),
+            }),
+        ]).start();
+    }, []);
 
     // Form state
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -128,7 +148,7 @@ export default function AddSale() {
 
             Alert.alert(
                 'Success',
-                `Sale recorded successfully!\n\nRevenue: ${formatCurrency(totals.revenue, currencyCode)}\nProfit: ${formatCurrency(totals.profit, currencyCode)}`,
+                `Sale recorded successfully!\n\nRevenue: ${formatCurrency(totals.revenue, currency)}\nProfit: ${formatCurrency(totals.profit, currency)}`,
                 [
                     {
                         text: 'OK',
@@ -148,12 +168,15 @@ export default function AddSale() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Record Sale</Text>
-                <Text style={styles.headerSubtitle}>Log a new sale transaction</Text>
-            </View>
+            <CurvedHeader
+                title="Record Sale"
+                subtitle="Log a new sale transaction"
+            />
 
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+            <Animated.ScrollView
+                style={[styles.scrollView, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+                contentContainerStyle={styles.scrollContent}
+            >
                 {/* Product Selection */}
                 <View style={styles.inputContainer}>
                     <Text style={styles.label}>
@@ -166,19 +189,19 @@ export default function AddSale() {
                         {selectedProduct ? (
                             <View style={styles.selectedProduct}>
                                 <View style={styles.productIcon}>
-                                    <Ionicons name="cube" size={20} color={Colors.blue} />
+                                    <Ionicons name="cube" size={20} color={colors.blue} />
                                 </View>
                                 <View style={styles.productInfo}>
                                     <Text style={styles.productName}>{selectedProduct.name}</Text>
                                     <Text style={styles.productStock}>
-                                        {selectedProduct.stockQuantity} in stock • {formatCurrency(selectedProduct.sellingPrice, currencyCode)}
+                                        {selectedProduct.stockQuantity} in stock • {formatCurrency(selectedProduct.sellingPrice, currency)}
                                     </Text>
                                 </View>
                             </View>
                         ) : (
                             <Text style={styles.placeholderText}>Tap to select product</Text>
                         )}
-                        <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
+                        <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                     </TouchableOpacity>
                     {errors.product && <Text style={styles.errorText}>{errors.product}</Text>}
                 </View>
@@ -205,20 +228,20 @@ export default function AddSale() {
 
                 {/* Sale Summary */}
                 {selectedProduct && quantity && unitPrice && (
-                    <Card style={styles.summaryCard} backgroundColor={Colors.mintBg}>
+                    <Card style={styles.summaryCard} backgroundColor={colors.mintBg}>
                         <Text style={styles.summaryTitle}>Sale Summary</Text>
                         <View style={styles.summaryRow}>
                             <Text style={styles.summaryLabel}>Total Revenue:</Text>
-                            <Text style={styles.summaryValue}>{formatCurrency(totals.revenue, currencyCode)}</Text>
+                            <Text style={styles.summaryValue}>{formatCurrency(totals.revenue, currency)}</Text>
                         </View>
                         <View style={styles.summaryRow}>
                             <Text style={styles.summaryLabel}>Total Cost:</Text>
-                            <Text style={styles.summaryValue}>{formatCurrency(totals.cost, currencyCode)}</Text>
+                            <Text style={styles.summaryValue}>{formatCurrency(totals.cost, currency)}</Text>
                         </View>
                         <View style={[styles.summaryRow, styles.summaryRowHighlight]}>
                             <Text style={styles.summaryLabelBold}>Profit:</Text>
-                            <Text style={[styles.summaryValueBold, { color: totals.profit >= 0 ? Colors.primary : Colors.error }]}>
-                                {formatCurrency(totals.profit, currencyCode)}
+                            <Text style={[styles.summaryValueBold, { color: totals.profit >= 0 ? colors.primary : colors.error }]}>
+                                {formatCurrency(totals.profit, currency)}
                             </Text>
                         </View>
                     </Card>
@@ -238,7 +261,7 @@ export default function AddSale() {
                     variant="outline"
                     disabled={loading}
                 />
-            </ScrollView>
+            </Animated.ScrollView>
 
             {/* Product Picker Modal */}
             <Modal
@@ -252,7 +275,7 @@ export default function AddSale() {
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Select Product</Text>
                             <TouchableOpacity onPress={() => setShowProductPicker(false)}>
-                                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+                                <Ionicons name="close" size={24} color={colors.textPrimary} />
                             </TouchableOpacity>
                         </View>
 
@@ -264,16 +287,16 @@ export default function AddSale() {
                                     style={styles.productItem}
                                     onPress={() => handleProductSelect(item)}
                                 >
-                                    <View style={styles.productIcon}>
-                                        <Ionicons name="cube" size={24} color={Colors.blue} />
+                                    <View style={styles.productIconModal}>
+                                        <Ionicons name="cube" size={24} color={colors.blue} />
                                     </View>
                                     <View style={styles.productInfo}>
                                         <Text style={styles.productName}>{item.name}</Text>
                                         <Text style={styles.productStock}>
-                                            {item.stockQuantity} in stock • {formatCurrency(item.sellingPrice, currencyCode)}
+                                            {item.stockQuantity} in stock • {formatCurrency(item.sellingPrice, currency)}
                                         </Text>
                                     </View>
-                                    <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+                                    <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                                 </TouchableOpacity>
                             )}
                             ListEmptyComponent={
@@ -297,30 +320,12 @@ export default function AddSale() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+        backgroundColor: colors.background,
     },
-    header: {
-        paddingHorizontal: Spacing.lg,
-        paddingTop: Spacing.lg,
-        paddingBottom: Spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-        backgroundColor: Colors.cardBackground,
-    },
-    headerTitle: {
-        fontSize: Typography['2xl'],
-        fontWeight: Typography.bold,
-        color: Colors.textPrimary,
-        marginBottom: Spacing.xs,
-    },
-    headerSubtitle: {
-        fontSize: Typography.sm,
-        color: Colors.textSecondary,
-    },
+    // header styles removed as they are replaced by CurvedHeader
     scrollView: {
         flex: 1,
     },
@@ -333,24 +338,24 @@ const styles = StyleSheet.create({
     label: {
         fontSize: Typography.sm,
         fontWeight: Typography.medium,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         marginBottom: Spacing.xs,
     },
     required: {
-        color: Colors.error,
+        color: colors.error,
     },
     productSelector: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: Colors.cardBackground,
+        backgroundColor: colors.cardBackground,
         borderRadius: BorderRadius.md,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: colors.border,
         padding: Spacing.md,
     },
     inputError: {
-        borderColor: Colors.error,
+        borderColor: colors.error,
     },
     selectedProduct: {
         flexDirection: 'row',
@@ -361,7 +366,16 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: BorderRadius.md,
-        backgroundColor: Colors.blueBg,
+        backgroundColor: colors.blueBg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: Spacing.md,
+    },
+    productIconModal: {
+        width: 40,
+        height: 40,
+        borderRadius: BorderRadius.md,
+        backgroundColor: colors.blueBg,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: Spacing.md,
@@ -372,20 +386,20 @@ const styles = StyleSheet.create({
     productName: {
         fontSize: Typography.base,
         fontWeight: Typography.semibold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         marginBottom: 2,
     },
     productStock: {
         fontSize: Typography.xs,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     placeholderText: {
         fontSize: Typography.base,
-        color: Colors.textTertiary,
+        color: colors.textTertiary,
     },
     errorText: {
         fontSize: Typography.xs,
-        color: Colors.error,
+        color: colors.error,
         marginTop: Spacing.xs,
     },
     summaryCard: {
@@ -395,7 +409,7 @@ const styles = StyleSheet.create({
     summaryTitle: {
         fontSize: Typography.lg,
         fontWeight: Typography.bold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         marginBottom: Spacing.md,
     },
     summaryRow: {
@@ -407,21 +421,21 @@ const styles = StyleSheet.create({
         marginTop: Spacing.sm,
         paddingTop: Spacing.md,
         borderTopWidth: 1,
-        borderTopColor: Colors.primary + '30',
+        borderTopColor: colors.primary + '30',
     },
     summaryLabel: {
         fontSize: Typography.base,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     summaryValue: {
         fontSize: Typography.base,
         fontWeight: Typography.medium,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     summaryLabelBold: {
         fontSize: Typography.lg,
         fontWeight: Typography.bold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     summaryValueBold: {
         fontSize: Typography.lg,
@@ -437,7 +451,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: Colors.cardBackground,
+        backgroundColor: colors.cardBackground,
         borderTopLeftRadius: BorderRadius.xl,
         borderTopRightRadius: BorderRadius.xl,
         maxHeight: '80%',
@@ -448,19 +462,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: Spacing.lg,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
+        borderBottomColor: colors.border,
     },
     modalTitle: {
         fontSize: Typography.xl,
         fontWeight: Typography.bold,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     productItem: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: Spacing.lg,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
+        borderBottomColor: colors.border,
     },
     emptyState: {
         padding: Spacing['3xl'],
@@ -468,6 +482,6 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: Typography.base,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
 });

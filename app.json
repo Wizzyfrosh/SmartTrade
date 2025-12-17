@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "scheme": "smarttrade",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -36,6 +36,12 @@
     "plugins": [
       "expo-router",
       "expo-sqlite"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "db6b86cc-369e-4a18-b2af-2ef4236018a3"
+      }
+    }
   }
 }
