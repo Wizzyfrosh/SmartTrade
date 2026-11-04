@@ -29,3 +29,31 @@ export const storageClient = new S3Client({
   forcePathStyle: true,
   credentials: { accessKeyId, secretAccessKey },
 });
+
+
+const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_PRIVATE_IMAGE_BYTES = 5 * 1024 * 1024;
+
+export async function verifyPrivateImageObject(
+  objectKey: string,
+  expectedPrefix: string,
+): Promise<boolean> {
+  if (!objectKey || objectKey.length > 1024 || !objectKey.startsWith(expectedPrefix)) {
+    return false;
+  }
+
+  try {
+    const { HeadObjectCommand } = await import("@aws-sdk/client-s3");
+    const result = await storageClient.send(new HeadObjectCommand({
+      Bucket: bucketName,
+      Key: objectKey,
+    }));
+    return Number.isSafeInteger(result.ContentLength) &&
+      Number(result.ContentLength) > 0 &&
+      Number(result.ContentLength) <= MAX_PRIVATE_IMAGE_BYTES &&
+      typeof result.ContentType === "string" &&
+      allowedImageTypes.has(result.ContentType);
+  } catch {
+    return false;
+  }
+}
