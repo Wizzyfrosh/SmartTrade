@@ -15,8 +15,8 @@ import { authClient } from '../../src/services/auth/client';
 import { COUNTRY_CURRENCY_MAP } from '../../src/utils/currency';
 import { useSettings } from '../../src/contexts/SettingsContext';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import { profileService } from '../../src/services/profile/profile';
+import { uploadPrivateImage } from '../../src/services/profile/upload';
 
 export default function Settings() {
     const { signOut, user } = useAuth();
@@ -134,17 +134,9 @@ export default function Settings() {
                 return;
             }
             setLoading(true);
-            const upload = await profileService.createImageUpload(contentType, 'avatar');
-            const uploaded = await FileSystem.uploadAsync(upload.uploadUrl, asset.uri, {
-                httpMethod: 'PUT',
-                uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-                headers: { 'Content-Type': contentType },
-            });
-            if (uploaded.status < 200 || uploaded.status >= 300) {
-                throw new Error('Image upload failed. Please try again.');
-            }
-            await profileService.update({ avatarObjectKey: upload.objectKey });
-            setAvatarUrl(await profileService.getPrivateImageUrl(upload.objectKey));
+            const objectKey = await uploadPrivateImage(asset.uri, contentType, 'avatar');
+            await profileService.update({ avatarObjectKey: objectKey });
+            setAvatarUrl(await profileService.getPrivateImageUrl(objectKey));
         } catch (error: any) {
             Alert.alert('Upload failed', error?.message || 'Unable to update profile image.');
         } finally {
