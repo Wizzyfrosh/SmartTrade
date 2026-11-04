@@ -34,6 +34,7 @@ export default async function handler(req: any, res: any) {
       }
 
       const sale = await withUserTransaction(userId, async (db) => {
+        await db.query("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [saleId]);
         // Idempotency: a retried offline sale must return the original record,
         // never decrement stock or create a second sale.
         const existing = await db.query(
