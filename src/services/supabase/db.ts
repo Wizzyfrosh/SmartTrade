@@ -23,7 +23,6 @@ function mapToProduct(row: any): Product {
     barcode: row.barcode ?? undefined,
     imageUrl: row.image_url ?? undefined,
     imageObjectKey: row.image_object_key ?? undefined,
-    imageObjectKey: row.image_object_key ?? undefined,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at || row.created_at).getTime(),
     synced: true,
