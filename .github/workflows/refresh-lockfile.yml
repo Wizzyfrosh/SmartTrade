@@ -6,6 +6,12 @@ on:
       - neon-better-auth-api
     paths:
       - package.json
+      - "src/**/*.ts"
+      - "src/**/*.tsx"
+      - "api/**/*.ts"
+      - "app/**/*.tsx"
+      - app.json
+      - vercel.json
   workflow_dispatch:
 
 permissions:
@@ -40,3 +46,9 @@ jobs:
             git pull --rebase origin neon-better-auth-api
             git push origin HEAD:neon-better-auth-api
           fi
+      - name: Install locked dependencies
+        run: npm ci
+      - name: TypeScript validation
+        run: npm run typecheck
+      - name: Expo web export
+        run: npm run build:web
