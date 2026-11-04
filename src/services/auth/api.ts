@@ -22,5 +22,6 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
     ...init,
     headers,
     credentials: Platform.OS === "web" ? "include" : "omit",
+    cache: init.cache ?? "no-store",
   });
 }
