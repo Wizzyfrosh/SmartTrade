@@ -55,5 +55,11 @@ export const auth = betterAuth({
     : {}),
   advanced: {
     useSecureCookies: process.env.NODE_ENV === "production",
+    database: {
+      // The schema is versioned and applied by database/neon migrations.
+      // Skip runtime introspection because Neon pooled connections do not
+      // expose the metadata consistently to this restricted application role.
+      validateSchema: false,
+    },
   },
 });
