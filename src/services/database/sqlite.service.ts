@@ -452,7 +452,11 @@ class DatabaseService {
         await this.db.withTransactionAsync(async () => {
             await this.db!.runAsync('DELETE FROM outbox WHERE id = ?', [item.id]);
             if (item.entityType === 'product' && item.operation !== 'DELETE') {
-                await this.db!.runAsync('UPDATE products SET synced = 1 WHERE id = ?', [item.entityId]);
+                await this.db!.runAsync(
+                    `UPDATE products SET synced = 1 WHERE id = ?
+                     AND NOT EXISTS (SELECT 1 FROM outbox WHERE entity_type = 'product' AND entity_id = ?)`,
+                    [item.entityId, item.entityId]
+                );
             } else if (item.entityType === 'sale') {
                 await this.db!.runAsync('UPDATE sales SET synced = 1 WHERE id = ?', [item.entityId]);
                 const payload = JSON.parse(item.payload) as Sale;
