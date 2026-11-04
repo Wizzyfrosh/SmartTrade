@@ -5,8 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { Input, Button, CurvedHeader } from '../../src/components';
-import { supabase } from '../../src/services/supabase/client';
-import { supabaseService } from '../../src/services/supabase/db';
+import { neonService } from '../../src/services/neon/db';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useSettings } from '../../src/contexts/SettingsContext';
 
@@ -23,6 +22,7 @@ export default function AddProduct() {
 
     const [loading, setLoading] = useState(false);
     const [image, setImage] = useState<string | null>(null);
+    const [imageObjectKey, setImageObjectKey] = useState<string | undefined>(undefined);
 
     // Form state
     const [name, setName] = useState('');
@@ -69,24 +69,19 @@ export default function AddProduct() {
     const loadProduct = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('products')
-                .select('*')
-                .eq('id', productId)
-                .single();
+            const products = await neonService.getAllProducts();
+            const data = products.find((item) => item.id === productId);
+            if (!data) throw new Error('Product not found');
 
-            if (error) throw error;
-
-            if (data) {
-                setName(data.name);
-                setSku(data.sku || '');
-                setCategory(data.category || '');
-                setCostPrice(data.cost_price?.toString() || '');
-                setSellingPrice(data.selling_price?.toString() || '');
-                setStockQuantity(data.stock_quantity?.toString() || '');
-                setLocalThreshold(data.low_stock_threshold?.toString() || lowStockThreshold.toString());
-                if (data.image_url) setImage(data.image_url);
-            }
+            setName(data.name);
+            setSku(data.sku || '');
+            setCategory(data.category || '');
+            setCostPrice(data.costPrice?.toString() || '');
+            setSellingPrice(data.sellingPrice?.toString() || '');
+            setStockQuantity(data.stockQuantity?.toString() || '');
+            setLocalThreshold(data.lowStockThreshold?.toString() || lowStockThreshold.toString());
+            setImageObjectKey(data.imageObjectKey);
+            if (data.imageUrl) setImage(data.imageUrl);
         } catch (error) {
             console.error('Error loading product:', error);
             Alert.alert('Error', 'Failed to load product details');
@@ -144,27 +139,26 @@ export default function AddProduct() {
 
         try {
             setLoading(true);
-            let uploadedImageUrl = image;
+            let uploadedImageKey = imageObjectKey;
 
             // Upload image if it's a local URI (newly picked)
             if (image && !image.startsWith('http')) {
-                uploadedImageUrl = await supabaseService.uploadProductImage(image);
+                uploadedImageKey = await neonService.uploadProductImage(image);
             }
 
             const productData = {
                 name: name.trim(),
-                sku: sku.trim() || null,
-                category: category.trim() || null,
+                sku: sku.trim() || undefined,
+                category: category.trim() || undefined,
                 costPrice: parseFloat(costPrice),
                 sellingPrice: parseFloat(sellingPrice),
                 stockQuantity: parseInt(stockQuantity),
                 lowStockThreshold: parseInt(localThreshold) || lowStockThreshold, // Fallback to global setting
-                imageUrl: uploadedImageUrl,
-                userId: user.id,
+                imageObjectKey: uploadedImageKey,
             };
 
             if (isEditMode) {
-                await supabaseService.updateProduct({
+                await neonService.updateProduct({
                     id: productId,
                     ...productData,
                     synced: false,
@@ -173,18 +167,7 @@ export default function AddProduct() {
                 } as any);
                 Alert.alert('Success', 'Product updated successfully');
             } else {
-                const { error } = await supabase.from('products').insert({
-                    name: productData.name,
-                    sku: productData.sku,
-                    category: productData.category,
-                    cost_price: productData.costPrice,
-                    selling_price: productData.sellingPrice,
-                    stock_quantity: productData.stockQuantity,
-                    low_stock_threshold: productData.lowStockThreshold,
-                    image_url: productData.imageUrl,
-                    user_id: user.id,
-                });
-                if (error) throw error;
+                await neonService.createProduct(productData);
                 Alert.alert('Success', 'Product added successfully');
             }
 
@@ -209,7 +192,7 @@ export default function AddProduct() {
                     onPress: async () => {
                         try {
                             setLoading(true);
-                            await supabaseService.deleteProduct(productId);
+                            await neonService.deleteProduct(productId);
                             router.back();
                         } catch (error) {
                             console.error('Error deleting product:', error);
