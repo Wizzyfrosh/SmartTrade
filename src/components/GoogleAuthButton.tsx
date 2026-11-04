@@ -1,68 +1,47 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, Alert, Image } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
-import { supabase } from '../services/supabase/client';
-import { Button } from './Button';
-import { makeRedirectUri } from 'expo-auth-session';
-
-WebBrowser.maybeCompleteAuthSession();
+import React, { useState } from "react";
+import { Alert, Image, StyleSheet } from "react-native";
+import { authClient } from "../services/auth/client";
+import { Button } from "./Button";
 
 export const GoogleAuthButton = () => {
-    // Client IDs provided by user
-    const [request, response, promptAsync] = Google.useAuthRequest({
-        iosClientId: 'YOUR_IOS_CLIENT_ID',
-        androidClientId: '937396339820-5v5aarrk5va49iet6om5rjmnatnjqdeo.apps.googleusercontent.com',
-        webClientId: '937396339820-9lm694se2u23j5uicuqqq9q6e7qlcbm4.apps.googleusercontent.com',
-        redirectUri: makeRedirectUri({
-            scheme: 'smarttrade' // Matching app.json
-        }),
-    });
+  const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (response?.type === 'success') {
-            const { authentication } = response;
-            signInWithGoogle(authentication?.idToken);
-        }
-    }, [response]);
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      const { error } = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/",
+      });
+      if (error) throw new Error(error.message);
+    } catch (error: any) {
+      Alert.alert("Google Sign-In Error", error?.message || "Unable to sign in with Google.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const signInWithGoogle = async (idToken?: string) => {
-        try {
-            if (!idToken) throw new Error('No ID token found');
-
-            const { error } = await supabase.auth.signInWithIdToken({
-                provider: 'google',
-                token: idToken,
-            });
-
-            if (error) throw error;
-            // Auth state change will be handled by the auth listener in layout/context
-        } catch (error: any) {
-            Alert.alert('Google Sign-In Error', error.message);
-        }
-    };
-
-    return (
-        <Button
-            title="Continue with Google"
-            onPress={() => promptAsync()}
-            variant="outline"
-            style={styles.button}
-            disabled={!request}
-            icon={<Image source={require('../../assets/icons/google_icon.png')} style={styles.googleIcon} />}
-        />
-    );
+  return (
+    <Button
+      title={loading ? "Connecting..." : "Continue with Google"}
+      onPress={handleGoogleSignIn}
+      variant="outline"
+      style={styles.button}
+      disabled={loading}
+      icon={<Image source={require("../../assets/icons/google_icon.png")} style={styles.googleIcon} />}
+    />
+  );
 };
 
 const styles = StyleSheet.create({
-    button: {
-        marginBottom: 20,
-        backgroundColor: '#fff',
-        borderColor: '#ddd',
-    },
-    googleIcon: {
-        width: 24,
-        height: 24,
-        borderRadius: 4,
-    },
+  button: {
+    marginBottom: 20,
+    backgroundColor: "#fff",
+    borderColor: "#ddd",
+  },
+  googleIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+  },
 });
