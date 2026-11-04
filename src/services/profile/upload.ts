@@ -11,11 +11,18 @@ export async function uploadPrivateImage(
   productId?: string,
 ): Promise<string> {
   if (!supported.has(contentType)) throw new Error("Only JPEG, PNG and WebP images are supported");
+  const fileInfo = await FileSystem.getInfoAsync(uri);
+  if (!fileInfo.exists || !("size" in fileInfo) || typeof fileInfo.size !== "number") {
+    throw new Error("Unable to determine image size");
+  }
+  if (fileInfo.size <= 0 || fileInfo.size > 5 * 1024 * 1024) {
+    throw new Error("Image must be 5 MB or smaller");
+  }
   if (target === "product" && !productId) throw new Error("Product ID is required");
 
   const response = await apiFetch("/api/storage/upload-url", {
     method: "POST",
-    body: JSON.stringify({ contentType, target, productId }),
+    body: JSON.stringify({ contentType, target, productId, sizeBytes: fileInfo.size }),
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok || !payload?.uploadUrl || !payload?.objectKey) {
