@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { StatCard, Card, EmptyState, SyncIndicator, ResponsiveContainer } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
+import { dbService } from '../../src/services/database/sqlite.service';
 import { formatCurrency } from '../../src/utils/currency';
 import { getGreeting } from '../../src/utils/date';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -28,33 +29,58 @@ export default function Dashboard() {
     const [stats, setStats] = useState<any>(null);
     const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
     const [todaySales, setTodaySales] = useState<Sale[]>([]);
+    const [pendingSync, setPendingSync] = useState(0);
 
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const userName = user?.name?.split(' ')[0] || 'User';
 
     useEffect(() => {
-        loadDashboardData();
-    }, []);
+        if (user?.id) void loadDashboardData();
+    }, [user?.id]);
 
     const loadDashboardData = async () => {
+        if (!user?.id) return;
         try {
             setLoading(true);
+            await dbService.init(user.id);
 
-            // Load dashboard stats
-            const dashboardStats = await supabaseService.getDashboardStats();
-            setStats(dashboardStats);
+            // Render the local cache immediately; offline sales remain visible.
+            const [localStats, localProducts, localSales, pending] = await Promise.all([
+                dbService.getDashboardStats(),
+                dbService.getLowStockProducts(),
+                dbService.getTodaySales(),
+                dbService.getPendingOutboxCount(),
+            ]);
+            setStats(localStats);
+            setLowStockProducts(localProducts.slice(0, 3));
+            setTodaySales(localSales);
+            setPendingSync(pending);
 
-            // Load low stock products
-            const lowStock = await supabaseService.getLowStockProducts();
-            setLowStockProducts(lowStock);
-
-            // Load today's sales
-            const sales = await supabaseService.getTodaySales();
-            setTodaySales(sales);
-
+            try {
+                const [remoteProducts, remoteSales] = await Promise.all([
+                    supabaseService.getAllProducts(),
+                    supabaseService.getAllSales(),
+                ]);
+                await Promise.all([
+                    dbService.cacheProducts(remoteProducts),
+                    dbService.cacheSales(remoteSales),
+                ]);
+                const [freshStats, freshProducts, freshSales, freshPending] = await Promise.all([
+                    dbService.getDashboardStats(),
+                    dbService.getLowStockProducts(),
+                    dbService.getTodaySales(),
+                    dbService.getPendingOutboxCount(),
+                ]);
+                setStats(freshStats);
+                setLowStockProducts(freshProducts.slice(0, 3));
+                setTodaySales(freshSales);
+                setPendingSync(freshPending);
+            } catch (networkError) {
+                console.warn('Showing cached dashboard data while offline:', networkError);
+            }
         } catch (error) {
-            console.error('Failed to load dashboard data:', error);
+            console.error('Failed to load local dashboard data:', error);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -92,7 +118,7 @@ export default function Dashboard() {
                                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                             </Text>
                         </View>
-                        <SyncIndicator status="synced" lastSyncTime={Date.now()} />
+                        <SyncIndicator status={pendingSync > 0 ? "unsynced" : "synced"} pendingItems={pendingSync} />
                     </View>
 
                     {/* Stats Grid */}
