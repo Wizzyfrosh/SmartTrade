@@ -1,4 +1,4 @@
-import { S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 const isPreview = process.env.VERCEL_ENV === "preview";
 const endpoint = isPreview
@@ -48,11 +48,30 @@ export async function verifyPrivateImageObject(
       Bucket: bucketName,
       Key: objectKey,
     }));
-    return Number.isSafeInteger(result.ContentLength) &&
-      Number(result.ContentLength) > 0 &&
-      Number(result.ContentLength) <= MAX_PRIVATE_IMAGE_BYTES &&
-      typeof result.ContentType === "string" &&
-      allowedImageTypes.has(result.ContentType);
+    if (!Number.isSafeInteger(result.ContentLength) ||
+        Number(result.ContentLength) <= 0 ||
+        Number(result.ContentLength) > MAX_PRIVATE_IMAGE_BYTES ||
+        typeof result.ContentType !== "string" ||
+        !allowedImageTypes.has(result.ContentType)) return false;
+
+    // Content-Type metadata is supplied by the uploader; verify the actual file signature too.
+    const sample = await storageClient.send(new GetObjectCommand({
+      Bucket: bucketName,
+      Key: objectKey,
+      Range: "bytes=0-11",
+    }));
+    if (!sample.Body) return false;
+    const bytes = await sample.Body.transformToByteArray();
+    const isJpeg = bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    const isPng = bytes.length >= 8 &&
+      bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 &&
+      bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
+    const isWebp = bytes.length >= 12 &&
+      String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
+      String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+    return (result.ContentType === "image/jpeg" && isJpeg) ||
+      (result.ContentType === "image/png" && isPng) ||
+      (result.ContentType === "image/webp" && isWebp);
   } catch {
     return false;
   }
