@@ -105,11 +105,20 @@ export default async function handler(req: any, res: any) {
         );
         if (existing.rows[0]) return;
 
+        // Never trust the offline payload's cost price. Lock the owned product
+        // and derive cost from the server before calculating profit.
+        const productResult = await db.query(
+          "SELECT cost_price FROM public.products WHERE id = $1 AND user_id = $2 FOR UPDATE",
+          [productId, session.user.id],
+        );
+        const product = productResult.rows[0];
+        if (!product) throw new Error("Product not found");
+        const trustedCostPrice = Number(product.cost_price);
         const revenue = unitPrice * quantity;
-        const totalCost = costPrice * quantity;
+        const totalCost = trustedCostPrice * quantity;
         await db.query(
           `SELECT * FROM public.create_sale_for_user($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-          [session.user.id, saleId, productId, quantity, unitPrice, costPrice,
+          [session.user.id, saleId, productId, quantity, unitPrice, trustedCostPrice,
             revenue, totalCost, revenue - totalCost, number(payload.saleDate, Date.now())],
         );
       });
