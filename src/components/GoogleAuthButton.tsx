@@ -3,10 +3,20 @@ import { StyleSheet, Alert, Image } from "react-native";
 import { authClient } from "../services/auth/client";
 import { Button } from "./Button";
 
+const googleEnabled = process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+
 export const GoogleAuthButton = () => {
   const [loading, setLoading] = useState(false);
 
   const signInWithGoogle = async () => {
+    if (!googleEnabled) {
+      Alert.alert(
+        "Google sign-in unavailable",
+        "Google OAuth credentials have not been fully configured yet. Please sign in with your email and password."
+      );
+      return;
+    }
+
     try {
       setLoading(true);
       const { error } = await authClient.signIn.social({
@@ -28,6 +38,7 @@ export const GoogleAuthButton = () => {
       variant="outline"
       style={styles.button}
       loading={loading}
+      disabled={loading || !googleEnabled}
       icon={<Image source={require("../../assets/icons/google_icon.png")} style={styles.googleIcon} />}
     />
   );
