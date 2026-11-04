@@ -3,11 +3,7 @@
  * App-wide configuration constants
  */
 
-// Supabase Configuration
-export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
-
-// Database Configuration
+// Local database configuration
 export const DB_NAME = 'smarttrade.db';
 export const DB_VERSION = 1;
 
