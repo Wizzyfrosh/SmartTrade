@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { auth } from "../../server/auth";
-import { storageBucket, storageClient } from "../../server/storage";
+import { ensureStorageCors, storageBucket, storageClient } from "../../server/storage";
 
 type Request = IncomingMessage & { body?: any };
 type Response = ServerResponse & { status: (code: number) => Response; json: (value: unknown) => void };
@@ -31,6 +31,7 @@ export default async function handler(req: Request, res: Response) {
       return res.status(400).json({ error: "Image must be smaller than 5 MB" });
     }
 
+    await ensureStorageCors();
     const key = `users/${session.user.id}/${purpose}/${randomUUID()}.${extensions[contentType]}`;
     const command = new PutObjectCommand({ Bucket: storageBucket, Key: key, ContentType: contentType });
     const uploadUrl = await getSignedUrl(storageClient, command, {
