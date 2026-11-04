@@ -5,7 +5,7 @@ import pg from "pg";
 const { Pool } = pg;
 const globalForPg = globalThis;
 
-const pool =
+export const authPool =
   globalForPg.smartTradeAuthPool ||
   new Pool({
     connectionString: process.env.BETTER_AUTH_DATABASE_URL,
@@ -16,7 +16,7 @@ const pool =
   });
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPg.smartTradeAuthPool = pool;
+  globalForPg.smartTradeAuthPool = authPool;
 }
 
 const trustedOrigins = [
@@ -33,7 +33,7 @@ const googleConfigured =
 
 export const auth = betterAuth({
   appName: "SmartTrade",
-  database: pool,
+  database: authPool,
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins,
