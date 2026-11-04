@@ -125,29 +125,18 @@ class DatabaseService {
             synced: false,
         };
 
-        await this.db.runAsync(
-            `INSERT INTO products (id, name, sku, category, cost_price, selling_price, stock_quantity, 
-       low_stock_threshold, barcode, image_url, created_at, updated_at, synced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                newProduct.id,
-                newProduct.name,
-                newProduct.sku || null,
-                newProduct.category || null,
-                newProduct.costPrice,
-                newProduct.sellingPrice,
-                newProduct.stockQuantity,
-                newProduct.lowStockThreshold,
-                newProduct.barcode || null,
-                newProduct.imageUrl || null,
-                newProduct.createdAt,
-                newProduct.updatedAt,
-                0,
-            ]
-        );
-
-        // Add to outbox for sync
-        await this.addToOutbox('product', id, 'INSERT', newProduct);
+        await this.db.withTransactionAsync(async () => {
+            await this.db!.runAsync(
+                `INSERT INTO products (id, name, sku, category, cost_price, selling_price, stock_quantity,
+                 low_stock_threshold, barcode, image_url, created_at, updated_at, synced)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [newProduct.id, newProduct.name, newProduct.sku || null, newProduct.category || null,
+                 newProduct.costPrice, newProduct.sellingPrice, newProduct.stockQuantity,
+                 newProduct.lowStockThreshold, newProduct.barcode || null, newProduct.imageUrl || null,
+                 newProduct.createdAt, newProduct.updatedAt, 0]
+            );
+            await this.addToOutbox('product', id, 'INSERT', newProduct);
+        });
 
         return newProduct;
     }
@@ -196,28 +185,17 @@ class DatabaseService {
             synced: false,
         };
 
-        await this.db.runAsync(
-            `UPDATE products SET name = ?, sku = ?, category = ?, cost_price = ?, selling_price = ?,
-       stock_quantity = ?, low_stock_threshold = ?, barcode = ?, image_url = ?, 
-       updated_at = ?, synced = ? WHERE id = ?`,
-            [
-                updated.name,
-                updated.sku || null,
-                updated.category || null,
-                updated.costPrice,
-                updated.sellingPrice,
-                updated.stockQuantity,
-                updated.lowStockThreshold,
-                updated.barcode || null,
-                updated.imageUrl || null,
-                updated.updatedAt,
-                0,
-                id,
-            ]
-        );
-
-        // Add to outbox for sync
-        await this.addToOutbox('product', id, 'UPDATE', updated);
+        await this.db.withTransactionAsync(async () => {
+            await this.db!.runAsync(
+                `UPDATE products SET name = ?, sku = ?, category = ?, cost_price = ?, selling_price = ?,
+                 stock_quantity = ?, low_stock_threshold = ?, barcode = ?, image_url = ?,
+                 updated_at = ?, synced = ? WHERE id = ?`,
+                [updated.name, updated.sku || null, updated.category || null, updated.costPrice,
+                 updated.sellingPrice, updated.stockQuantity, updated.lowStockThreshold,
+                 updated.barcode || null, updated.imageUrl || null, updated.updatedAt, 0, id]
+            );
+            await this.addToOutbox('product', id, 'UPDATE', updated);
+        });
 
         return updated;
     }
@@ -228,8 +206,10 @@ class DatabaseService {
     async deleteProduct(id: string): Promise<void> {
         if (!this.db) throw new Error('Database not initialized');
 
-        await this.db.runAsync('DELETE FROM products WHERE id = ?', [id]);
-        await this.addToOutbox('product', id, 'DELETE', { id });
+        await this.db.withTransactionAsync(async () => {
+            await this.addToOutbox('product', id, 'DELETE', { id });
+            await this.db!.runAsync('DELETE FROM products WHERE id = ?', [id]);
+        });
     }
 
     /**
@@ -411,6 +391,32 @@ class DatabaseService {
         );
 
         return result.map(this.mapRowToOutboxItem);
+    }
+
+    /**
+     * Acknowledge a synced outbox item and update its local entity atomically.
+     */
+    async acknowledgeOutboxItem(item: OutboxItem): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+        await this.db.withTransactionAsync(async () => {
+            await this.db!.runAsync('DELETE FROM outbox WHERE id = ?', [item.id]);
+            if (item.entityType === 'product' && item.operation !== 'DELETE') {
+                await this.db!.runAsync('UPDATE products SET synced = 1 WHERE id = ?', [item.entityId]);
+            } else if (item.entityType === 'sale') {
+                await this.db!.runAsync('UPDATE sales SET synced = 1 WHERE id = ?', [item.entityId]);
+            }
+        });
+    }
+
+    async incrementOutboxRetry(id: string): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+        await this.db.runAsync('UPDATE outbox SET retry_count = retry_count + 1 WHERE id = ?', [id]);
+    }
+
+    async getPendingOutboxCount(): Promise<number> {
+        if (!this.db) throw new Error('Database not initialized');
+        const row = await this.db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM outbox');
+        return Number(row?.count ?? 0);
     }
 
     /**
