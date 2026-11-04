@@ -3,6 +3,15 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { auth } from "../../server/auth.mjs";
 import { storageBucket, storageClient } from "../../server/storage.mjs";
 
+function headersFromRequest(req) {
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers || {})) {
+    if (typeof value === "string") headers.set(key, value);
+    else if (Array.isArray(value)) headers.set(key, value.join(", "));
+  }
+  return headers;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
