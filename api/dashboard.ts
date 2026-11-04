@@ -12,6 +12,16 @@ export default async function handler(req: any, res: any) {
   try {
     const stats = await withUserTransaction(session.user.id, async (db) => {
       const result = await db.query(`
+        WITH day_bounds AS (
+          SELECT
+            (extract(epoch FROM (
+              date_trunc('day', NOW() AT TIME ZONE 'Africa/Lagos') AT TIME ZONE 'Africa/Lagos'
+            )) * 1000)::bigint AS start_ms,
+            (extract(epoch FROM (
+              (date_trunc('day', NOW() AT TIME ZONE 'Africa/Lagos') + interval '1 day')
+              AT TIME ZONE 'Africa/Lagos'
+            )) * 1000)::bigint AS end_ms
+        )
         SELECT
           (SELECT COUNT(*)::int FROM public.products) AS total_products,
           (SELECT COUNT(*)::int FROM public.products
@@ -19,14 +29,12 @@ export default async function handler(req: any, res: any) {
           (SELECT COUNT(*)::int FROM public.products WHERE stock_quantity = 0) AS out_of_stock_items,
           (SELECT COALESCE(SUM(stock_quantity * cost_price), 0)
             FROM public.products) AS stock_value,
-          (SELECT COUNT(*)::int FROM public.sales
-            WHERE sale_date >= (date_trunc('day', NOW()) AT TIME ZONE 'UTC')::date::timestamp
-              AND sale_date < ((date_trunc('day', NOW()) + interval '1 day') AT TIME ZONE 'UTC')::date::timestamp
-          ) AS today_sales_count,
-          (SELECT COALESCE(SUM(total_revenue), 0) FROM public.sales
-            WHERE sale_date >= (extract(epoch FROM date_trunc('day', NOW())) * 1000)::bigint) AS today_revenue,
-          (SELECT COALESCE(SUM(profit), 0) FROM public.sales
-            WHERE sale_date >= (extract(epoch FROM date_trunc('day', NOW())) * 1000)::bigint) AS today_profit
+          (SELECT COUNT(*)::int FROM public.sales, day_bounds
+            WHERE sale_date >= day_bounds.start_ms AND sale_date < day_bounds.end_ms) AS today_sales_count,
+          (SELECT COALESCE(SUM(total_revenue), 0) FROM public.sales, day_bounds
+            WHERE sale_date >= day_bounds.start_ms AND sale_date < day_bounds.end_ms) AS today_revenue,
+          (SELECT COALESCE(SUM(profit), 0) FROM public.sales, day_bounds
+            WHERE sale_date >= day_bounds.start_ms AND sale_date < day_bounds.end_ms) AS today_profit
       `);
       return result.rows[0];
     });
