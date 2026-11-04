@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { EmptyState, Button, StatCard, Card, ResponsiveContainer } from '../../src/components';
-import { supabaseService } from '../../src/services/supabase/db';
+import { neonService } from '../../src/services/neon/db';
 import { exportSalesReport, exportInventory } from '../../src/utils/csv-export';
 import { formatCurrency } from '../../src/utils/currency';
 import { getDateRange } from '../../src/utils/date';
@@ -34,11 +34,11 @@ export default function Reports() {
             const { start, end } = getDateRange(period);
 
             // 2. Fetch Sales
-            const salesData = await supabaseService.getSalesByDateRange(start, end);
+            const salesData = await neonService.getSalesByDateRange(start, end);
             setSales(salesData);
 
             // 3. Fetch Products (for inventory export and calculations)
-            const productsData = await supabaseService.getAllProducts();
+            const productsData = await neonService.getAllProducts();
             setProducts(productsData);
 
         } catch (error) {
