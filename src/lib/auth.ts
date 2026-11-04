@@ -29,8 +29,9 @@ if (process.env.NODE_ENV !== "production") globalForPool.smartTradePool = pool;
 const trustedOrigins = [
   authUrl,
   "smarttrade://",
-  "http://localhost:8081",
-  "http://localhost:19006",
+  ...(process.env.NODE_ENV !== "production"
+    ? ["http://localhost:8081", "http://localhost:19006"]
+    : []),
   ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",").map((origin) => origin.trim()).filter(Boolean) ?? []),
 ];
 
