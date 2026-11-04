@@ -20,7 +20,7 @@ Product create/edit/delete and private image uploads are not yet a supported off
 - Each outbox item is processed in its own database transaction with RLS context set by the server.
 - A sale uses its stable local sale ID as an idempotency key. The server takes a transaction-scoped advisory lock, checks for an existing sale, locks the owned product and calculates cost/profit from the server's product record.
 - Product metadata updates never overwrite the server's stock quantity.
-- A manual stock change is emitted as a separate immutable `stock_adjustment` event with a stable outbox ID and signed integer delta. The server inserts the event and applies the delta to the owned product in the same transaction. Replaying the same event ID does not apply the delta twice.
+- A manual stock change is emitted as a separate immutable `stock_adjustment` event with a stable outbox ID and signed integer delta. The server inserts the event and applies the delta to the owned product in the same transaction. Replaying the same event ID does not apply the delta twice. Reusing an event ID with a different product, delta or reason is rejected rather than silently treated as a successful retry.
 - Stock adjustments that would make server stock negative are rejected; their outbox records remain pending for reconciliation.
 - The server returns per-item results. The client only deletes an outbox record after a successful acknowledgement.
 
