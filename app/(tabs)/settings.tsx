@@ -76,6 +76,25 @@ export default function Settings() {
         }
     };
 
+    const handleSignOut = async () => {
+        try {
+            await signOut();
+        } catch (error) {
+            console.error('Error signing out:', error);
+        }
+    };
+
+    const openProfileEdit = () => {
+        setEditName(user?.name || '');
+        setIsEditingProfile(true);
+    };
+
+    const THEME_OPTIONS = [
+        { label: 'System Default', value: 'system' },
+        { label: 'Light', value: 'light' },
+        { label: 'Dark', value: 'dark' },
+    ];
+
     const handlePickImage = async () => {
         Alert.alert(
             'Profile photo upload unavailable',
