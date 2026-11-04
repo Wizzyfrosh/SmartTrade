@@ -1,8 +1,8 @@
 import { Pool, type PoolClient } from "pg";
 
-const connectionString = process.env.SMARTTRADE_DATABASE_URL;
+const connectionString = process.env.SMARTTRADE_DATABASE_URL || process.env.DATABASE_URL;
 if (!connectionString) {
-  throw new Error("SMARTTRADE_DATABASE_URL is required for business-data APIs");
+  throw new Error("SMARTTRADE_DATABASE_URL or DATABASE_URL is required for business-data APIs");
 }
 
 const globalForPool = globalThis as typeof globalThis & { smartTradeBusinessPool?: Pool };
