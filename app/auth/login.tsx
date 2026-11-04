@@ -15,7 +15,7 @@ import {
 import { useRouter, Link } from 'expo-router';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { Input, Button } from '../../src/components';
-import { supabase } from '../../src/services/supabase/client';
+import { authClient } from '../../src/services/auth/client';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleAuthButton } from '../../src/components/GoogleAuthButton';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -139,12 +139,12 @@ export default function Login() {
 
         try {
             setLoading(true);
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
+            const { error } = await authClient.signIn.email({
+                email: email.trim().toLowerCase(),
                 password,
             });
 
-            if (error) throw error;
+            if (error) throw new Error(error.message);
         } catch (error: any) {
             let message = error.message;
             if (message.includes('Invalid login credentials')) {
@@ -157,29 +157,10 @@ export default function Login() {
     };
 
     const handleForgotPassword = async () => {
-        if (!email) {
-            Alert.alert('Email Required', 'Please enter your email address first, then tap "Forgot password?"');
-            return;
-        }
-
-        try {
-            setLoading(true);
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: 'smarttrade://reset-password',
-            });
-
-            if (error) throw error;
-
-            Alert.alert(
-                'Password Reset Email Sent',
-                'Check your inbox for the password reset link. If you don\'t see it, check your spam folder.',
-                [{ text: 'OK' }]
-            );
-        } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to send reset email. Please try again.');
-        } finally {
-            setLoading(false);
-        }
+        Alert.alert(
+            'Password reset unavailable',
+            'Password reset email delivery has not been configured yet. Please contact support for account recovery.'
+        );
     };
 
     return (
