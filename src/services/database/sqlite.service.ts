@@ -156,11 +156,11 @@ class DatabaseService {
         await this.db.withTransactionAsync(async () => {
             await this.db!.runAsync(
                 `INSERT INTO products (id, name, sku, category, cost_price, selling_price, stock_quantity,
-                 low_stock_threshold, barcode, image_url, created_at, updated_at, synced)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 low_stock_threshold, barcode, image_url, image_object_key, created_at, updated_at, synced)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [newProduct.id, newProduct.name, newProduct.sku || null, newProduct.category || null,
                  newProduct.costPrice, newProduct.sellingPrice, newProduct.stockQuantity,
-                 newProduct.lowStockThreshold, newProduct.barcode || null, newProduct.imageUrl || null,
+                 newProduct.lowStockThreshold, newProduct.barcode || null, newProduct.imageUrl || null, newProduct.imageObjectKey || null,
                  newProduct.createdAt, newProduct.updatedAt, 0]
             );
             await this.addToOutbox('product', id, 'INSERT', newProduct);
@@ -245,11 +245,11 @@ class DatabaseService {
         await this.db.withTransactionAsync(async () => {
             await this.db!.runAsync(
                 `UPDATE products SET name = ?, sku = ?, category = ?, cost_price = ?, selling_price = ?,
-                 stock_quantity = ?, low_stock_threshold = ?, barcode = ?, image_url = ?,
+                 stock_quantity = ?, low_stock_threshold = ?, barcode = ?, image_url = ?, image_object_key = ?,
                  updated_at = ?, synced = ? WHERE id = ?`,
                 [updated.name, updated.sku || null, updated.category || null, updated.costPrice,
                  updated.sellingPrice, updated.stockQuantity, updated.lowStockThreshold,
-                 updated.barcode || null, updated.imageUrl || null, updated.updatedAt, 0, id]
+                 updated.barcode || null, updated.imageUrl || null, updated.imageObjectKey || null, updated.updatedAt, 0, id]
             );
             await this.addToOutbox('product', id, 'UPDATE', updated);
         });
