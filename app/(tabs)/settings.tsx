@@ -11,16 +11,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { Button, Input, ResponsiveContainer } from '../../src/components';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { supabase } from '../../src/services/supabase/client';
+import { authClient } from '../../src/services/auth/client';
+import { neonService } from '../../src/services/neon/db';
 import { COUNTRY_CURRENCY_MAP } from '../../src/utils/currency';
 import { useSettings } from '../../src/contexts/SettingsContext';
 import * as ImagePicker from 'expo-image-picker';
-import { decode } from 'base64-arraybuffer';
 
 export default function Settings() {
     const { signOut, user } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
     // Use Context
     const { currency, lowStockThreshold, notificationsEnabled, updateSettings, theme, colors } = useSettings();
@@ -63,11 +64,11 @@ export default function Settings() {
 
         try {
             setLoading(true);
-            const { error } = await supabase.auth.updateUser({
-                data: { full_name: editName.trim() }
+            const { error } = await authClient.updateUser({
+                name: editName.trim()
             });
 
-            if (error) throw error;
+            if (error) throw new Error(error.message);
 
             Alert.alert('Success', 'Profile updated successfully');
             setIsEditingProfile(false);
@@ -86,7 +87,6 @@ export default function Settings() {
                 allowsEditing: true,
                 aspect: [1, 1],
                 quality: 0.5,
-                base64: true,
             });
 
             if (!result.canceled && result.assets[0].base64) {
@@ -103,38 +103,11 @@ export default function Settings() {
 
         try {
             setLoading(true);
-            const base64 = image.base64;
-            const fileExt = image.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
-            const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-            const filePath = `${fileName}`;
-
-            // Upload to Supabase 'avatars' bucket
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, decode(base64!), {
-                    contentType: image.mimeType ?? 'image/jpeg',
-                    upsert: true,
-                });
-
-            if (uploadError) {
-                if (uploadError.message.includes('Bucket not found')) {
-                    throw new Error("Storage bucket 'avatars' not found. Please contact admin.");
-                }
-                throw uploadError;
-            }
-
-            // Get Public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath);
-
-            // Update User Metadata
-            const { error: updateError } = await supabase.auth.updateUser({
-                data: { avatar_url: publicUrl }
-            });
-
-            if (updateError) throw updateError;
-
+            const objectKey = await neonService.uploadPrivateImage(image.uri, 'avatar');
+            const { error } = await authClient.updateUser({ image: objectKey });
+            if (error) throw new Error(error.message);
+            const signedUrl = await neonService.getPrivateImageUrl(objectKey);
+            setAvatarUrl(signedUrl);
             Alert.alert('Success', 'Profile picture updated!');
         } catch (error: any) {
             console.error('Error uploading avatar:', error);
@@ -153,7 +126,7 @@ export default function Settings() {
     };
 
     const openProfileEdit = () => {
-        setEditName(user?.user_metadata?.full_name || '');
+        setEditName(user?.name || '');
         setIsEditingProfile(true);
     };
 
@@ -178,14 +151,14 @@ export default function Settings() {
                         <View style={styles.profileCard}>
                             <TouchableOpacity onPress={handlePickImage} >
                                 <View style={styles.avatar}>
-                                    {user?.user_metadata?.avatar_url ? (
+                                    {avatarUrl || (user?.image && !user.image.startsWith('users/') ? user.image : null) ? (
                                         <Image
-                                            source={{ uri: user.user_metadata.avatar_url }}
+                                            source={{ uri: avatarUrl || user.image }}
                                             style={styles.avatarImage}
                                         />
                                     ) : (
                                         <Text style={styles.avatarText}>
-                                            {user?.user_metadata?.full_name?.charAt(0).toUpperCase() || 'U'}
+                                            {user?.name?.charAt(0).toUpperCase() || 'U'}
                                         </Text>
                                     )}
                                     <View style={styles.cameraIconBadge}>
@@ -194,7 +167,7 @@ export default function Settings() {
                                 </View>
                             </TouchableOpacity>
                             <View style={styles.profileInfo}>
-                                <Text style={styles.userName}>{user?.user_metadata?.full_name || 'User'}</Text>
+                                <Text style={styles.userName}>{user?.name || 'User'}</Text>
                                 <Text style={styles.userEmail}>{user?.email}</Text>
                             </View>
                             <TouchableOpacity onPress={openProfileEdit} style={styles.editButton}>
