@@ -14,6 +14,7 @@ export const storageClient = new S3Client({
   region: process.env.AWS_REGION || "eu-central-1",
   endpoint,
   forcePathStyle: true,
+  requestChecksumCalculation: "WHEN_REQUIRED",
   credentials: { accessKeyId, secretAccessKey },
 });
 
