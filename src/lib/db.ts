@@ -1,6 +1,11 @@
 import { Pool, type PoolClient } from "pg";
 
-const connectionString = process.env.SMARTTRADE_DATABASE_URL || process.env.DATABASE_URL;
+const connectionString = process.env.VERCEL_ENV === "preview"
+  ? process.env.SMARTTRADE_PREVIEW_DATABASE_URL
+  : process.env.SMARTTRADE_DATABASE_URL || process.env.DATABASE_URL;
+if (process.env.VERCEL_ENV === "preview" && !connectionString) {
+  throw new Error("SMARTTRADE_PREVIEW_DATABASE_URL is required; preview APIs will not fall back to production");
+}
 if (!connectionString) {
   throw new Error("SMARTTRADE_DATABASE_URL or DATABASE_URL is required for business-data APIs");
 }
