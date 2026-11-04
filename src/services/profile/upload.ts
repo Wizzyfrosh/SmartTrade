@@ -37,5 +37,14 @@ export async function uploadPrivateImage(
   if (uploaded.status < 200 || uploaded.status >= 300) {
     throw new Error("Image upload failed");
   }
+
+  const verification = await apiFetch("/api/storage/verify-upload", {
+    method: "POST",
+    body: JSON.stringify({ objectKey: payload.objectKey, target, productId }),
+  });
+  const verificationPayload = await verification.json().catch(() => null);
+  if (!verification.ok || verificationPayload?.verified !== true) {
+    throw new Error(verificationPayload?.error || "Uploaded image could not be verified");
+  }
   return payload.objectKey as string;
 }
