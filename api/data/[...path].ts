@@ -7,6 +7,7 @@ type Request = IncomingMessage & { body?: unknown; query?: Record<string, string
 type Response = ServerResponse & {
   status: (code: number) => Response;
   json: (value: unknown) => void;
+  end: () => void;
 };
 
 function readBody(req: Request): Record<string, any> {
@@ -98,7 +99,8 @@ export default async function handler(req: Request, res: Response) {
         if (!name || !Number.isFinite(cost) || cost < 0 || !Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
           throw Object.assign(new Error("Invalid product details"), { statusCode: 400 });
         }
-        const objectKey = typeof body.imageUrl === "string" && body.imageUrl.startsWith(`users/${userId}/`) ? body.imageUrl : null;
+        const candidateKey = body.imageObjectKey ?? body.imageUrl;
+        const objectKey = typeof candidateKey === "string" && candidateKey.startsWith(`users/${userId}/`) ? candidateKey : null;
         const row = await db.query(
           `INSERT INTO public.products
            (id,user_id,name,sku,category,cost_price,selling_price,stock_quantity,low_stock_threshold,barcode,image_object_key)
@@ -123,8 +125,9 @@ export default async function handler(req: Request, res: Response) {
             sets.push(`${column} = $${values.length}`);
           }
         }
-        if (body.imageUrl !== undefined) {
-          values.push(typeof body.imageUrl === "string" && body.imageUrl.startsWith(`users/${userId}/`) ? body.imageUrl : null);
+        if (body.imageObjectKey !== undefined || body.imageUrl !== undefined) {
+          const candidateKey = body.imageObjectKey ?? body.imageUrl;
+          values.push(typeof candidateKey === "string" && candidateKey.startsWith(`users/${userId}/`) ? candidateKey : null);
           sets.push(`image_object_key = $${values.length}`);
         }
         if (!sets.length) throw Object.assign(new Error("No product fields supplied"), { statusCode: 400 });
