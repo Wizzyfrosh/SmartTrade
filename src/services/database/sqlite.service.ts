@@ -77,9 +77,15 @@ class DatabaseService {
         operation TEXT NOT NULL,
         payload TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        retry_count INTEGER DEFAULT 0
+        retry_count INTEGER DEFAULT 0,
+        last_error TEXT
       );
     `);
+
+        const outboxColumns = await this.db.getAllAsync<{ name: string }>('PRAGMA table_info(outbox)');
+        if (!outboxColumns.some((column) => column.name === 'last_error')) {
+            await this.db.execAsync('ALTER TABLE outbox ADD COLUMN last_error TEXT');
+        }
 
         // Settings table
         await this.db.execAsync(`
@@ -438,9 +444,12 @@ class DatabaseService {
         });
     }
 
-    async incrementOutboxRetry(id: string): Promise<void> {
+    async recordOutboxFailure(id: string, message: string): Promise<void> {
         if (!this.db) throw new Error('Database not initialized');
-        await this.db.runAsync('UPDATE outbox SET retry_count = retry_count + 1 WHERE id = ?', [id]);
+        await this.db.runAsync(
+            'UPDATE outbox SET retry_count = retry_count + 1, last_error = ? WHERE id = ?',
+            [message.slice(0, 500), id]
+        );
     }
 
     async getPendingOutboxCount(): Promise<number> {
@@ -547,6 +556,7 @@ class DatabaseService {
             payload: row.payload,
             createdAt: row.created_at,
             retryCount: row.retry_count,
+            lastError: row.last_error ?? null,
         };
     }
 
