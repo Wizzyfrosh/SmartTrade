@@ -34,6 +34,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Dependency vulnerability report
+        shell: bash
+        run: |
+          npm audit --json > npm-audit.json || true
+          node -e 'const a=require("./npm-audit.json"); const v=a.metadata?.vulnerabilities ?? {}; console.log("Dependency audit:", JSON.stringify(v));'
       - name: TypeScript validation
         run: npm run typecheck
 
