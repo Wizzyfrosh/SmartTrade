@@ -296,34 +296,46 @@ class DatabaseService {
             synced: false,
         };
 
-        // Start transaction
-        await this.db.runAsync(
-            `INSERT INTO sales (id, product_id, quantity, unit_price, cost_price, total_revenue, 
-       total_cost, profit, sale_date, created_at, synced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                newSale.id,
-                newSale.productId,
-                newSale.quantity,
-                newSale.unitPrice,
-                newSale.costPrice,
-                newSale.totalRevenue,
-                newSale.totalCost,
-                newSale.profit,
-                newSale.saleDate,
-                newSale.createdAt,
-                0,
-            ]
-        );
+        // Keep the sale, stock decrement and outbox event in one transaction.
+        // A failed stock check or insert rolls back all three writes.
+        await this.db.withTransactionAsync(async () => {
+            const stockUpdate = await this.db!.runAsync(
+                `UPDATE products
+                 SET stock_quantity = stock_quantity - ?, updated_at = ?, synced = 0
+                 WHERE id = ? AND stock_quantity >= ?`,
+                [newSale.quantity, now, newSale.productId, newSale.quantity]
+            );
 
-        // Update product stock
-        await this.db.runAsync(
-            'UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ? WHERE id = ?',
-            [newSale.quantity, now, newSale.productId]
-        );
+            if (stockUpdate.changes !== 1) {
+                const product = await this.db!.getFirstAsync<{ id: string }>(
+                    'SELECT id FROM products WHERE id = ?',
+                    [newSale.productId]
+                );
+                if (!product) throw new Error('Product not found');
+                throw new Error('Insufficient stock');
+            }
 
-        // Add to outbox for sync
-        await this.addToOutbox('sale', id, 'INSERT', newSale);
+            await this.db!.runAsync(
+                `INSERT INTO sales (id, product_id, quantity, unit_price, cost_price, total_revenue,
+                 total_cost, profit, sale_date, created_at, synced)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    newSale.id,
+                    newSale.productId,
+                    newSale.quantity,
+                    newSale.unitPrice,
+                    newSale.costPrice,
+                    newSale.totalRevenue,
+                    newSale.totalCost,
+                    newSale.profit,
+                    newSale.saleDate,
+                    newSale.createdAt,
+                    0,
+                ]
+            );
+
+            await this.addToOutbox('sale', id, 'INSERT', newSale);
+        });
 
         return newSale;
     }
