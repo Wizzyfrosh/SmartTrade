@@ -72,7 +72,7 @@ export default async function handler(req: any, res: any) {
              ON CONFLICT (id) DO UPDATE SET
                name=EXCLUDED.name,sku=EXCLUDED.sku,category=EXCLUDED.category,
                cost_price=EXCLUDED.cost_price,selling_price=EXCLUDED.selling_price,
-               stock_quantity=EXCLUDED.stock_quantity,low_stock_threshold=EXCLUDED.low_stock_threshold,
+               low_stock_threshold=EXCLUDED.low_stock_threshold,
                barcode=EXCLUDED.barcode,image_url=EXCLUDED.image_url,updated_at=NOW()
              WHERE public.products.user_id = EXCLUDED.user_id`,
             [productId, session.user.id, name, payload.sku || null, payload.category || null,
@@ -98,6 +98,7 @@ export default async function handler(req: any, res: any) {
           throw new Error("Invalid sale data");
         }
 
+        await db.query("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [saleId]);
         const existing = await db.query(
           "SELECT id FROM public.sales WHERE id = $1 AND user_id = $2",
           [saleId, session.user.id],
