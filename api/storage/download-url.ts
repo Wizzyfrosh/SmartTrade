@@ -1,8 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { auth } from "../../server/auth";
-import { storageBucket, storageClient } from "../../server/storage";
 
 type Request = IncomingMessage & { query?: Record<string, string | string[] | undefined>; url?: string };
 type Response = ServerResponse & { status: (code: number) => Response; json: (value: unknown) => void };
@@ -15,6 +13,10 @@ export default async function handler(req: Request, res: Response) {
       if (typeof value === "string") headers.set(key, value);
       else if (Array.isArray(value)) headers.set(key, value.join(", "));
     }
+    const [{ auth }, storage] = await Promise.all([
+      import("../../server/auth"),
+      import("../../server/storage"),
+    ]);
     const session = await auth.api.getSession({ headers });
     if (!session?.user?.id) return res.status(401).json({ error: "Authentication required" });
 
@@ -25,8 +27,8 @@ export default async function handler(req: Request, res: Response) {
     }
 
     const signedUrl = await getSignedUrl(
-      storageClient,
-      new GetObjectCommand({ Bucket: storageBucket, Key: key }),
+      storage.storageClient,
+      new GetObjectCommand({ Bucket: storage.storageBucket, Key: key }),
       { expiresIn: 300 },
     );
     return res.status(200).json({ url: signedUrl });
