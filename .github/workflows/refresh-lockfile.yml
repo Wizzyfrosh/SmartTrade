@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - neon-better-auth-api
+    paths:
+      - package.json
   workflow_dispatch:
 
 permissions:
