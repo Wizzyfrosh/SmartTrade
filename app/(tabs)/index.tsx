@@ -31,7 +31,7 @@ export default function Dashboard() {
 
     const styles = useMemo(() => createStyles(colors), [colors]);
 
-    const userName = user?.user_metadata?.full_name?.split(' ')[0] || 'User';
+    const userName = user?.name?.split(' ')[0] || 'User';
 
     useEffect(() => {
         loadDashboardData();
