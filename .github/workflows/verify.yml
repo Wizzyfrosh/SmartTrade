@@ -38,7 +38,27 @@ jobs:
         shell: bash
         run: |
           npm audit --json > npm-audit.json || true
-          node -e 'const a=require("./npm-audit.json"); const v=a.metadata?.vulnerabilities ?? {}; console.log("Dependency audit:", JSON.stringify(v));'
+          node <<'NODE'
+          const fs = require("node:fs");
+          const audit = JSON.parse(fs.readFileSync("npm-audit.json", "utf8"));
+          const counts = audit.metadata?.vulnerabilities ?? {};
+          const lines = [
+            "## npm dependency audit",
+            "",
+            `Totals: critical ${counts.critical ?? 0}, high ${counts.high ?? 0}, moderate ${counts.moderate ?? 0}, low ${counts.low ?? 0}, info ${counts.info ?? 0}.`,
+            "",
+            "| Package | Severity | Vulnerable range | Fix available | Advisory |",
+            "|---|---|---|---|---|",
+          ];
+          for (const [name, item] of Object.entries(audit.vulnerabilities ?? {})) {
+            const advisories = (item.via ?? []).filter(v => typeof v === "object");
+            const advisory = advisories.map(v => v.title || v.url || "Advisory").join("; ") || "Transitive dependency";
+            lines.push(`|${name}|${item.severity}|${item.range || "—"}|${item.fixAvailable ? JSON.stringify(item.fixAvailable) : "No"}|${advisory}|`);
+          }
+          const report = lines.join("\\n");
+          console.log(report);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, report + "\\n");
+          NODE
       - name: TypeScript validation
         run: npm run typecheck
 
