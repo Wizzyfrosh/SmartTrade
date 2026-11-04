@@ -64,7 +64,7 @@ export default async function handler(req: Request, res: Response) {
       else if (Array.isArray(value)) headers.set(key, value.join(", "));
     }
 
-    const { auth } = await import("../../server/auth");
+    const { auth } = await import("../../server/auth.js");
     const session = await auth.api.getSession({ headers });
     if (!session?.user?.id) {
       res.status(401).json({ error: "Authentication required" });
