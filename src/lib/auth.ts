@@ -5,7 +5,7 @@ import { Pool } from "pg";
 const isPreview = process.env.VERCEL_ENV === "preview";
 const databaseUrl = isPreview
   ? process.env.SMARTTRADE_PREVIEW_AUTH_DATABASE_URL
-  : process.env.BETTER_AUTH_DATABASE_URL || process.env.DATABASE_URL;
+  : process.env.BETTER_AUTH_DATABASE_URL;
 const authSecret = isPreview
   ? process.env.SMARTTRADE_PREVIEW_AUTH_SECRET
   : process.env.BETTER_AUTH_SECRET;
