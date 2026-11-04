@@ -254,6 +254,7 @@ class DatabaseService {
         };
 
         await this.db.withTransactionAsync(async () => {
+            const stockDelta = updated.stockQuantity - existing.stockQuantity;
             await this.db!.runAsync(
                 `UPDATE products SET name = ?, sku = ?, category = ?, cost_price = ?, selling_price = ?,
                  stock_quantity = ?, low_stock_threshold = ?, barcode = ?, image_url = ?, image_object_key = ?,
@@ -263,6 +264,14 @@ class DatabaseService {
                  updated.barcode || null, updated.imageUrl || null, updated.imageObjectKey || null, updated.updatedAt, 0, id]
             );
             await this.addToOutbox('product', id, 'UPDATE', updated);
+            if (stockDelta !== 0) {
+                await this.addToOutbox('stock_adjustment', id, 'INSERT', {
+                    productId: id,
+                    quantityDelta: stockDelta,
+                    reason: 'manual_adjustment',
+                    createdAt: updated.updatedAt,
+                });
+            }
         });
 
         return updated;
@@ -458,7 +467,7 @@ class DatabaseService {
      * Add item to outbox for sync
      */
     private async addToOutbox(
-        entityType: 'product' | 'sale',
+        entityType: 'product' | 'sale' | 'stock_adjustment',
         entityId: string,
         operation: 'INSERT' | 'UPDATE' | 'DELETE',
         payload: any
@@ -497,7 +506,11 @@ class DatabaseService {
             if (item.entityType === 'product' && item.operation !== 'DELETE') {
                 await this.db!.runAsync(
                     `UPDATE products SET synced = 1 WHERE id = ?
-                     AND NOT EXISTS (SELECT 1 FROM outbox WHERE entity_type = 'product' AND entity_id = ?)`,
+                     AND NOT EXISTS (
+                       SELECT 1 FROM outbox
+                       WHERE (entity_type = 'product' OR entity_type = 'stock_adjustment')
+                         AND entity_id = ?
+                     )`,
                     [item.entityId, item.entityId]
                 );
             } else if (item.entityType === 'sale') {
@@ -505,8 +518,22 @@ class DatabaseService {
                 const payload = JSON.parse(item.payload) as Sale;
                 await this.db!.runAsync(
                     `UPDATE products SET synced = 1 WHERE id = ?
-                     AND NOT EXISTS (SELECT 1 FROM outbox WHERE entity_type = 'product' AND entity_id = ?)`,
+                     AND NOT EXISTS (
+                       SELECT 1 FROM outbox
+                       WHERE (entity_type = 'product' OR entity_type = 'stock_adjustment')
+                         AND entity_id = ?
+                     )`,
                     [payload.productId, payload.productId]
+                );
+            } else if (item.entityType === 'stock_adjustment') {
+                await this.db!.runAsync(
+                    `UPDATE products SET synced = 1 WHERE id = ?
+                     AND NOT EXISTS (
+                       SELECT 1 FROM outbox
+                       WHERE (entity_type = 'product' OR entity_type = 'stock_adjustment')
+                         AND entity_id = ?
+                     )`,
+                    [item.entityId, item.entityId]
                 );
             }
         });
