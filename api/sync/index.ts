@@ -67,8 +67,8 @@ export default async function handler(req: any, res: any) {
               (id,user_id,name,sku,category,cost_price,selling_price,stock_quantity,
                low_stock_threshold,barcode,image_url,image_object_key,created_at,updated_at)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
-               COALESCE(to_timestamp($12 / 1000.0),NOW()),
-               COALESCE(to_timestamp($13 / 1000.0),NOW()))
+               COALESCE(to_timestamp($13 / 1000.0),NOW()),
+               COALESCE(to_timestamp($14 / 1000.0),NOW()))
              ON CONFLICT (id) DO UPDATE SET
                name=EXCLUDED.name,sku=EXCLUDED.sku,category=EXCLUDED.category,
                cost_price=EXCLUDED.cost_price,selling_price=EXCLUDED.selling_price,
