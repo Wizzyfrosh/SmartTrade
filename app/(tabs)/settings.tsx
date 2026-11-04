@@ -101,7 +101,7 @@ export default function Settings() {
                 quality: 0.5,
             });
 
-            if (!result.canceled && result.assets[0].base64) {
+            if (!result.canceled && result.assets[0]) {
                 await uploadAvatar(result.assets[0]);
             }
         } catch (error) {
