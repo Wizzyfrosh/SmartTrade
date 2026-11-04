@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { requireAuth } from "../../src/lib/require-auth";
 import { withUserTransaction } from "../../src/lib/db";
+import { verifyPrivateImageObject } from "../../src/lib/storage";
 
 const fields: Record<string, string> = {
   name: "name",
@@ -28,6 +29,12 @@ export default async function handler(req: any, res: any) {
 
   try {
     if (req.method === "GET") {
+      const imageKey = body.imageObjectKey;
+      if (imageKey !== undefined &&
+          (typeof imageKey !== "string" || !(await verifyPrivateImageObject(imageKey, `users/${userId}/products/${id}/`)))) {
+        return json(res, 400, { error: "Product image upload is missing, invalid or exceeds 5 MB" });
+      }
+
       const product = await withUserTransaction(userId, async (db) => {
         const result = await db.query("SELECT * FROM public.products WHERE id = $1", [id]);
         return result.rows[0] ?? null;
