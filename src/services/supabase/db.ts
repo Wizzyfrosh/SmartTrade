@@ -22,6 +22,7 @@ function mapToProduct(row: any): Product {
     lowStockThreshold: Number(row.low_stock_threshold),
     barcode: row.barcode ?? undefined,
     imageUrl: row.image_url ?? undefined,
+    imageObjectKey: row.image_object_key ?? undefined,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at || row.created_at).getTime(),
     synced: true,
@@ -80,6 +81,23 @@ class SmartTradeApiService {
     return rows.map(mapToSale);
   }
 
+  async getProductById(id: string): Promise<Product> {
+    return mapToProduct(await request<any>(`/api/products/${encodeURIComponent(id)}`));
+  }
+
+  async createProduct(product: Omit<Product, "id" | "createdAt" | "updatedAt" | "synced">): Promise<Product> {
+    const row = await request<any>("/api/products", {
+      method: "POST",
+      body: JSON.stringify({
+        name: product.name, sku: product.sku, category: product.category,
+        costPrice: product.costPrice, sellingPrice: product.sellingPrice,
+        stockQuantity: product.stockQuantity, lowStockThreshold: product.lowStockThreshold,
+        barcode: product.barcode, imageUrl: product.imageUrl,
+      }),
+    });
+    return mapToProduct(row);
+  }
+
   async getAllProducts(): Promise<Product[]> {
     const rows = await request<any[]>("/api/products");
     return rows.map(mapToProduct);
@@ -111,8 +129,9 @@ class SmartTradeApiService {
     return mapToSale(row);
   }
 
-  async uploadProductImage(_uri: string): Promise<string> {
-    throw new Error("Product image uploads are temporarily unavailable while private Neon object storage is being connected.");
+  async saveProductImage(uri: string, productId: string): Promise<string> {
+    const { uploadPrivateImage } = await import("../profile/upload");
+    return uploadPrivateImage(uri, "product", productId);
   }
 
   async updateProduct(product: Product): Promise<void> {
@@ -128,6 +147,7 @@ class SmartTradeApiService {
         lowStockThreshold: product.lowStockThreshold,
         barcode: product.barcode,
         imageUrl: product.imageUrl,
+        imageObjectKey: product.imageObjectKey,
       }),
     });
   }
