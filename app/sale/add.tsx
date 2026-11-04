@@ -69,7 +69,7 @@ export default function AddSale() {
 
     const loadProducts = async () => {
         try {
-            await dbService.init();
+            await dbService.init(user?.id || '');
             const cached = await dbService.getAllProducts();
             if (cached.length) setProducts(cached.filter(p => p.stockQuantity > 0));
 
@@ -160,7 +160,7 @@ export default function AddSale() {
 
             let syncMessage = 'Saved on this device and queued for synchronization.';
             try {
-                const sync = await syncService.syncNow();
+                const sync = await syncService.syncNow(user.id);
                 if (sync.failed === 0 && sync.pending === 0) {
                     syncMessage = 'Sale recorded and synchronized successfully.';
                 } else if (sync.failed > 0) {
