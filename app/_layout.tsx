@@ -5,7 +5,10 @@
 
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
-import { View, ActivityIndicator, Platform } from 'react-native';
+import { View, ActivityIndicator, Platform, AppState } from 'react-native';
+import * as Network from 'expo-network';
+import { dbService } from '../src/services/database/sqlite.service';
+import { syncService } from '../src/services/sync/sync.service';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { SettingsProvider } from '../src/contexts/SettingsContext';
 import { Colors } from '../src/constants/theme';
@@ -21,6 +24,36 @@ function InitialLayout() {
     const { session, loading } = useAuth();
     const segments = useSegments();
     const router = useRouter();
+
+    useEffect(() => {
+        if (loading || !session?.user?.id) return;
+        let disposed = false;
+
+        const syncWhenReady = async () => {
+            try {
+                await dbService.init();
+                if (!disposed) await syncService.syncNow();
+            } catch (error) {
+                console.warn('Background synchronization deferred:', error);
+            }
+        };
+
+        void syncWhenReady();
+        const appStateSubscription = AppState.addEventListener('change', (state) => {
+            if (state === 'active') void syncWhenReady();
+        });
+        const networkSubscription = Network.addNetworkStateListener((state) => {
+            if (state.isConnected && state.isInternetReachable !== false) {
+                void syncWhenReady();
+            }
+        });
+
+        return () => {
+            disposed = true;
+            appStateSubscription.remove();
+            networkSubscription.remove();
+        };
+    }, [loading, session?.user?.id]);
 
     useEffect(() => {
         if (loading) return;
