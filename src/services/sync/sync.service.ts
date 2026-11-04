@@ -10,15 +10,21 @@ type SyncResult = {
   offline: boolean;
 };
 
-let activeSync: Promise<SyncResult> | null = null;
+let activeSync: { userId: string; promise: Promise<SyncResult> } | null = null;
 
 export const syncService = {
   syncNow(userId: string): Promise<SyncResult> {
-    if (activeSync) return activeSync;
-    activeSync = this.runSync(userId).finally(() => {
-      activeSync = null;
+    if (!userId) return Promise.reject(new Error('A signed-in user is required to synchronize local data'));
+    if (activeSync) {
+      if (activeSync.userId === userId) return activeSync.promise;
+      return activeSync.promise.catch(() => undefined).then(() => this.syncNow(userId));
+    }
+    const promise = this.runSync(userId);
+    const tracked = promise.finally(() => {
+      if (activeSync?.promise === tracked) activeSync = null;
     });
-    return activeSync;
+    activeSync = { userId, promise: tracked };
+    return tracked;
   },
 
   async runSync(userId: string): Promise<SyncResult> {
