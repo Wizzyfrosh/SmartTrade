@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Spacing, Typography, BorderRadius } from '../../src/constants/theme';
 import { Input, Button, Card, CurvedHeader } from '../../src/components';
-import { supabaseService } from '../../src/services/supabase/db';
+import { neonService } from '../../src/services/neon/db';
 import { formatCurrency } from '../../src/utils/currency';
 import type { Product } from '../../src/types';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -67,7 +67,7 @@ export default function AddSale() {
 
     const loadProducts = async () => {
         try {
-            const allProducts = await supabaseService.getAllProducts();
+            const allProducts = await neonService.getAllProducts();
             setProducts(allProducts.filter(p => p.stockQuantity > 0)); // Only show in-stock products
         } catch (error) {
             console.error('Failed to load products:', error);
@@ -134,7 +134,7 @@ export default function AddSale() {
                 return;
             }
 
-            await supabaseService.createSale({
+            await neonService.createSale({
                 productId: selectedProduct.id,
                 productName: selectedProduct.name,
                 quantity: qty,
