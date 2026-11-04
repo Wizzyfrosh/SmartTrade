@@ -2,6 +2,15 @@ import { randomUUID } from "node:crypto";
 import { auth } from "../../server/auth.mjs";
 import { withUserTransaction } from "../../server/db.mjs";
 
+function headersFromRequest(req) {
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers || {})) {
+    if (typeof value === "string") headers.set(key, value);
+    else if (Array.isArray(value)) headers.set(key, value.join(", "));
+  }
+  return headers;
+}
+
 function readBody(req) {
   if (req.body && typeof req.body === "object") return req.body;
   if (typeof req.body === "string") return JSON.parse(req.body);
@@ -52,7 +61,7 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
 
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
+    const session = await auth.api.getSession({ headers: headersFromRequest(req) });
     if (!session?.user?.id) return res.status(401).json({ error: "Authentication required" });
 
     const url = new URL(req.url || "/api/data", "https://smarttrade-inventotryapp.vercel.app");
