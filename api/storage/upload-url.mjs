@@ -4,6 +4,15 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { auth } from "../../server/auth.mjs";
 import { ensureStorageCors, storageBucket, storageClient } from "../../server/storage.mjs";
 
+function headersFromRequest(req) {
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers || {})) {
+    if (typeof value === "string") headers.set(key, value);
+    else if (Array.isArray(value)) headers.set(key, value.join(", "));
+  }
+  return headers;
+}
+
 const extensions = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -14,7 +23,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
+    const session = await auth.api.getSession({ headers: headersFromRequest(req) });
     if (!session?.user?.id) return res.status(401).json({ error: "Authentication required" });
 
     const contentType = String(req.body?.contentType || "");
