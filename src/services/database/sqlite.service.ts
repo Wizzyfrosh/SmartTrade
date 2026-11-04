@@ -391,6 +391,31 @@ class DatabaseService {
     }
 
     /**
+     * Cache server sales without overwriting pending local sales.
+     */
+    async cacheSales(sales: Sale[]): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+        await this.db.withTransactionAsync(async () => {
+            for (const sale of sales) {
+                await this.db!.runAsync(
+                    `INSERT INTO sales
+                     (id,product_id,quantity,unit_price,cost_price,total_revenue,total_cost,profit,
+                      sale_date,created_at,synced)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,1)
+                     ON CONFLICT(id) DO UPDATE SET
+                       product_id=excluded.product_id,quantity=excluded.quantity,
+                       unit_price=excluded.unit_price,cost_price=excluded.cost_price,
+                       total_revenue=excluded.total_revenue,total_cost=excluded.total_cost,
+                       profit=excluded.profit,sale_date=excluded.sale_date,synced=1
+                     WHERE sales.synced=1`,
+                    [sale.id, sale.productId, sale.quantity, sale.unitPrice, sale.costPrice,
+                     sale.totalRevenue, sale.totalCost, sale.profit, sale.saleDate, sale.createdAt]
+                );
+            }
+        });
+    }
+
+    /**
      * Get sales by date range
      */
     async getSalesByDateRange(startDate: number, endDate: number): Promise<Sale[]> {
