@@ -118,7 +118,7 @@ class NeonService {
   }
 
   async getPrivateImageUrl(key: string): Promise<string> {
-    return signedImageUrl(key) || "";
+    return (await signedImageUrl(key)) || "";
   }
 
   async updateProduct(product: Product): Promise<void> {
