@@ -5,15 +5,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { Input, Button, CurvedHeader } from '../../src/components';
-import { supabase } from '../../src/services/supabase/client';
 import { supabaseService } from '../../src/services/supabase/db';
-import { useAuth } from '../../src/contexts/AuthContext';
 import { useSettings } from '../../src/contexts/SettingsContext';
+import { profileService } from '../../src/services/profile/profile';
 
 export default function AddProduct() {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const { user } = useAuth();
     const { lowStockThreshold, colors } = useSettings();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -23,6 +21,8 @@ export default function AddProduct() {
 
     const [loading, setLoading] = useState(false);
     const [image, setImage] = useState<string | null>(null);
+    const [imageObjectKey, setImageObjectKey] = useState<string | undefined>(undefined);
+    const [imageContentType, setImageContentType] = useState('image/jpeg');
 
     // Form state
     const [name, setName] = useState('');
@@ -69,24 +69,17 @@ export default function AddProduct() {
     const loadProduct = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('products')
-                .select('*')
-                .eq('id', productId)
-                .single();
-
-            if (error) throw error;
-
-            if (data) {
-                setName(data.name);
-                setSku(data.sku || '');
-                setCategory(data.category || '');
-                setCostPrice(data.cost_price?.toString() || '');
-                setSellingPrice(data.selling_price?.toString() || '');
-                setStockQuantity(data.stock_quantity?.toString() || '');
-                setLocalThreshold(data.low_stock_threshold?.toString() || lowStockThreshold.toString());
-                if (data.image_url) setImage(data.image_url);
-            }
+            const data = await supabaseService.getProductById(productId);
+            setName(data.name);
+            setSku(data.sku || '');
+            setCategory(data.category || '');
+            setCostPrice(data.costPrice?.toString() || '');
+            setSellingPrice(data.sellingPrice?.toString() || '');
+            setStockQuantity(data.stockQuantity?.toString() || '');
+            setLocalThreshold(data.lowStockThreshold?.toString() || lowStockThreshold.toString());
+            setImageObjectKey(data.imageObjectKey);
+            if (data.imageObjectKey) setImage(await profileService.getPrivateImageUrl(data.imageObjectKey));
+            else if (data.imageUrl) setImage(data.imageUrl);
         } catch (error) {
             console.error('Error loading product:', error);
             Alert.alert('Error', 'Failed to load product details');
@@ -103,8 +96,9 @@ export default function AddProduct() {
             quality: 0.8,
         });
 
-        if (!result.canceled) {
+        if (!result.canceled && result.assets[0]) {
             setImage(result.assets[0].uri);
+            setImageContentType(result.assets[0].mimeType || 'image/jpeg');
         }
     };
 
@@ -137,54 +131,35 @@ export default function AddProduct() {
             return;
         }
 
-        if (!user) {
-            Alert.alert('Error', 'You must be logged in to manage products');
-            return;
-        }
-
         try {
             setLoading(true);
-            let uploadedImageUrl = image;
-
-            // Upload image if it's a local URI (newly picked)
-            if (image && !image.startsWith('http')) {
-                uploadedImageUrl = await supabaseService.uploadProductImage(image);
-            }
-
-            const productData = {
+            const productData: any = {
                 name: name.trim(),
-                sku: sku.trim() || null,
-                category: category.trim() || null,
+                sku: sku.trim() || undefined,
+                category: category.trim() || undefined,
                 costPrice: parseFloat(costPrice),
                 sellingPrice: parseFloat(sellingPrice),
-                stockQuantity: parseInt(stockQuantity),
-                lowStockThreshold: parseInt(localThreshold) || lowStockThreshold, // Fallback to global setting
-                imageUrl: uploadedImageUrl,
-                userId: user.id,
+                stockQuantity: parseInt(stockQuantity, 10),
+                lowStockThreshold: parseInt(localThreshold, 10) || lowStockThreshold,
+                imageUrl: image && image.startsWith('http') ? image : undefined,
+                imageObjectKey,
             };
 
             if (isEditMode) {
+                if (image && !image.startsWith('http')) {
+                    productData.imageObjectKey = await supabaseService.saveProductImage(image, imageContentType, productId);
+                    productData.imageUrl = undefined;
+                }
                 await supabaseService.updateProduct({
-                    id: productId,
-                    ...productData,
-                    synced: false,
-                    createdAt: 0, // Ignored by update
-                    updatedAt: 0,
-                } as any);
+                    id: productId, ...productData, synced: true, createdAt: 0, updatedAt: Date.now(),
+                });
                 Alert.alert('Success', 'Product updated successfully');
             } else {
-                const { error } = await supabase.from('products').insert({
-                    name: productData.name,
-                    sku: productData.sku,
-                    category: productData.category,
-                    cost_price: productData.costPrice,
-                    selling_price: productData.sellingPrice,
-                    stock_quantity: productData.stockQuantity,
-                    low_stock_threshold: productData.lowStockThreshold,
-                    image_url: productData.imageUrl,
-                    user_id: user.id,
-                });
-                if (error) throw error;
+                const created = await supabaseService.createProduct(productData);
+                if (image && !image.startsWith('http')) {
+                    const objectKey = await supabaseService.saveProductImage(image, imageContentType, created.id);
+                    await supabaseService.updateProduct({ ...created, imageUrl: undefined, imageObjectKey: objectKey });
+                }
                 Alert.alert('Success', 'Product added successfully');
             }
 
