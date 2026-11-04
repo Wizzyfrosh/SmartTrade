@@ -18,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Spacing, Typography, BorderRadius } from '../../src/constants/theme';
 import { Input, Button, Card, CurvedHeader } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
+import { dbService } from '../../src/services/database/sqlite.service';
+import { syncService } from '../../src/services/sync/sync.service';
 import { formatCurrency } from '../../src/utils/currency';
 import type { Product } from '../../src/types';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -67,10 +69,20 @@ export default function AddSale() {
 
     const loadProducts = async () => {
         try {
-            const allProducts = await supabaseService.getAllProducts();
-            setProducts(allProducts.filter(p => p.stockQuantity > 0)); // Only show in-stock products
+            await dbService.init();
+            const cached = await dbService.getAllProducts();
+            if (cached.length) setProducts(cached.filter(p => p.stockQuantity > 0));
+
+            try {
+                const remote = await supabaseService.getAllProducts();
+                await dbService.cacheProducts(remote);
+                setProducts(remote.filter(p => p.stockQuantity > 0));
+            } catch (networkError) {
+                // Keep the local cache available when the device is offline.
+                if (!cached.length) console.warn('No cached products are available offline:', networkError);
+            }
         } catch (error) {
-            console.error('Failed to load products:', error);
+            console.error('Failed to load local products:', error);
         }
     };
 
@@ -134,7 +146,7 @@ export default function AddSale() {
                 return;
             }
 
-            await supabaseService.createSale({
+            await dbService.createSale({
                 productId: selectedProduct.id,
                 productName: selectedProduct.name,
                 quantity: qty,
@@ -144,17 +156,26 @@ export default function AddSale() {
                 totalCost: totals.cost,
                 profit: totals.profit,
                 saleDate: Date.now(),
-            }, user.id);
+            });
+
+            let syncMessage = 'Saved on this device and queued for synchronization.';
+            try {
+                const sync = await syncService.syncNow();
+                if (sync.failed === 0 && sync.pending === 0) {
+                    syncMessage = 'Sale recorded and synchronized successfully.';
+                } else if (sync.failed > 0) {
+                    syncMessage = 'Sale saved locally, but server synchronization needs attention. It remains safely queued.';
+                } else if (sync.offline) {
+                    syncMessage = 'You are offline. The sale is saved on this device and will sync when internet returns.';
+                }
+            } catch (syncError) {
+                console.warn('Sale queued; sync will retry later:', syncError);
+            }
 
             Alert.alert(
-                'Success',
-                `Sale recorded successfully!\n\nRevenue: ${formatCurrency(totals.revenue, currency)}\nProfit: ${formatCurrency(totals.profit, currency)}`,
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => router.back(),
-                    },
-                ]
+                'Sale saved',
+                `${syncMessage}\n\nRevenue: ${formatCurrency(totals.revenue, currency)}\nProfit: ${formatCurrency(totals.profit, currency)}`,
+                [{ text: 'OK', onPress: () => router.back() }]
             );
         } catch (error) {
             console.error('Failed to record sale:', error);
