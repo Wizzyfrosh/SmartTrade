@@ -59,11 +59,17 @@ class DatabaseService {
         low_stock_threshold INTEGER DEFAULT 5,
         barcode TEXT,
         image_url TEXT,
+        image_object_key TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         synced INTEGER DEFAULT 0
       );
     `);
+
+        const productColumns = await this.db.getAllAsync<{ name: string }>('PRAGMA table_info(products)');
+        if (!productColumns.some((column) => column.name === 'image_object_key')) {
+            await this.db.execAsync('ALTER TABLE products ADD COLUMN image_object_key TEXT');
+        }
 
         // Sales table
         await this.db.execAsync(`
@@ -187,19 +193,19 @@ class DatabaseService {
                 await this.db!.runAsync(
                     `INSERT INTO products
                      (id,name,sku,category,cost_price,selling_price,stock_quantity,low_stock_threshold,
-                      barcode,image_url,created_at,updated_at,synced)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)
+                      barcode,image_url,image_object_key,created_at,updated_at,synced)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)
                      ON CONFLICT(id) DO UPDATE SET
                        name=excluded.name,sku=excluded.sku,category=excluded.category,
                        cost_price=excluded.cost_price,selling_price=excluded.selling_price,
                        stock_quantity=excluded.stock_quantity,low_stock_threshold=excluded.low_stock_threshold,
-                       barcode=excluded.barcode,image_url=excluded.image_url,
+                       barcode=excluded.barcode,image_url=excluded.image_url,image_object_key=excluded.image_object_key,
                        updated_at=excluded.updated_at,synced=1
                      WHERE products.synced=1`,
                     [product.id, product.name, product.sku || null, product.category || null,
                      product.costPrice, product.sellingPrice, product.stockQuantity,
                      product.lowStockThreshold, product.barcode || null, product.imageUrl || null,
-                     product.createdAt, product.updatedAt]
+                     product.imageObjectKey || null, product.createdAt, product.updatedAt]
                 );
             }
         });
@@ -544,6 +550,7 @@ class DatabaseService {
             lowStockThreshold: row.low_stock_threshold,
             barcode: row.barcode,
             imageUrl: row.image_url,
+            imageObjectKey: row.image_object_key ?? undefined,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             synced: row.synced === 1,
