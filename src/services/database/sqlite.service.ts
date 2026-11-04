@@ -99,13 +99,19 @@ class DatabaseService {
         payload TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         retry_count INTEGER DEFAULT 0,
-        last_error TEXT
+        last_error TEXT,
+        next_retry_at INTEGER
       );
     `);
 
         const outboxColumns = await this.db.getAllAsync<{ name: string }>('PRAGMA table_info(outbox)');
         if (!outboxColumns.some((column) => column.name === 'last_error')) {
             await this.db.execAsync('ALTER TABLE outbox ADD COLUMN last_error TEXT');
+        }
+
+        const retryColumns = await this.db.getAllAsync<{ name: string }>('PRAGMA table_info(outbox)');
+        if (!retryColumns.some((column) => column.name === 'next_retry_at')) {
+            await this.db.execAsync('ALTER TABLE outbox ADD COLUMN next_retry_at INTEGER');
         }
 
         // Settings table
@@ -469,7 +475,8 @@ class DatabaseService {
         if (!this.db) throw new Error('Database not initialized');
 
         const result = await this.db.getAllAsync<any>(
-            'SELECT * FROM outbox ORDER BY created_at ASC'
+            'SELECT * FROM outbox WHERE next_retry_at IS NULL OR next_retry_at <= ? ORDER BY created_at ASC',
+            [Date.now()]
         );
 
         return result.map(this.mapRowToOutboxItem);
@@ -502,10 +509,20 @@ class DatabaseService {
 
     async recordOutboxFailure(id: string, message: string): Promise<void> {
         if (!this.db) throw new Error('Database not initialized');
-        await this.db.runAsync(
-            'UPDATE outbox SET retry_count = retry_count + 1, last_error = ? WHERE id = ?',
-            [message.slice(0, 500), id]
+        const row = await this.db.getFirstAsync<{ retry_count: number }>(
+            'SELECT retry_count FROM outbox WHERE id = ?', [id]
         );
+        const nextRetryCount = Number(row?.retry_count ?? 0) + 1;
+        const delay = Math.min(60 * 60 * 1000, 2000 * (2 ** Math.min(nextRetryCount, 10)));
+        await this.db.runAsync(
+            'UPDATE outbox SET retry_count = ?, last_error = ?, next_retry_at = ? WHERE id = ?',
+            [nextRetryCount, message.slice(0, 500), Date.now() + delay, id]
+        );
+    }
+
+    async retryDeferredOutboxItems(): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+        await this.db.runAsync('UPDATE outbox SET next_retry_at = NULL WHERE next_retry_at IS NOT NULL');
     }
 
     async getPendingOutboxCount(): Promise<number> {
