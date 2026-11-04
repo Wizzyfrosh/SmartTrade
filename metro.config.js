@@ -6,5 +6,9 @@ const config = getDefaultConfig(__dirname);
 
 // Add support for additional asset types including icon fonts
 config.resolver.assetExts.push('ttf', 'otf', 'woff', 'woff2');
+if (!config.resolver.assetExts.includes('wasm')) {
+  config.resolver.assetExts.push('wasm');
+}
+config.resolver.unstable_enablePackageExports = true;
 
 module.exports = config;
