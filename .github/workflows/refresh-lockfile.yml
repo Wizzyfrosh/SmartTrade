@@ -38,6 +38,10 @@ jobs:
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Install locked dependencies
         run: npm ci
+      - name: Dependency vulnerability report
+        run: |
+          npm audit --json > npm-audit.json || true
+          node -e 'const a=require("./npm-audit.json"); for (const [name,v] of Object.entries(a.vulnerabilities || {})) console.log(`${v.severity}: ${name} | direct=${v.isDirect} | fixAvailable=${JSON.stringify(v.fixAvailable)}`); console.log("Totals:", JSON.stringify(a.metadata?.vulnerabilities || {}));'
       - name: TypeScript validation
         run: npm run typecheck
       - name: Expo web export
