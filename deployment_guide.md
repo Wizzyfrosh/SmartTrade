@@ -1,80 +1,110 @@
 # SmartTrade Deployment Guide
 
-SmartTrade is an Expo Router application built with React Native. The same app codebase supports Android, iOS, and the web.
+SmartTrade is an Expo Router application built with React Native. The application codebase targets web, Android, and iOS. Vercel hosts the web export and the server-side API routes; Neon provides PostgreSQL and private object storage; Better Auth is self-hosted on the API.
 
 ## Requirements
 
 - Node.js 22.x
 - npm
-- A Supabase project
+- A Neon project and private Object Storage bucket
+- A Vercel project with Node.js Functions enabled
 
 ## Run locally
 
 Install dependencies:
 
 ```bash
-npm ci
+npm install
 ```
 
-Start the native development server:
+Start Expo:
 
 ```bash
 npm start
 ```
 
-Start the web development server:
+Start web development:
 
 ```bash
 npm run web
 ```
 
-Create the production web bundle:
+Build the web export:
 
 ```bash
 npm run build:web
 ```
 
-Expo exports the browser application into the `dist/` directory.
+Expo exports the browser application into `dist/`.
 
-To preview the exported bundle locally, run:
+## Neon setup
 
-```bash
-npx serve dist
-```
+Use the dedicated SmartTrade Neon project in `eu-central-1` and the `smarttrade` database.
 
-## Deploy to Vercel
+The backend uses two separate PostgreSQL roles:
 
-The repository includes a root-level `vercel.json`. It configures Vercel to:
+- `smarttrade_app`: inventory, sales, and user-scoped business data.
+- `smarttrade_auth`: Better Auth users, sessions, accounts, and verification records.
 
-- Run `npm run build:web`
-- Publish the `dist/` directory
-- Use SPA rewrites so Expo Router URLs resolve when refreshed directly
+The application connects through server-side Vercel Functions. Never connect to PostgreSQL directly from Expo client code.
 
-Import the `Wizzyfrosh/SmartTrade` GitHub repository into Vercel. Keep the project root set to the repository root. Vercel should read the build and output settings from `vercel.json`.
+The private object bucket is named `smarttrade-private`. Upload and download URLs are generated server-side and expire quickly.
 
-For predictable builds, select Node.js 22.x in the Vercel project settings.
+The SQL source migrations are in `database/neon/`. They describe a fresh database setup; do not rerun the initial schema migration against an already populated database.
 
-After the initial deployment, connect the production branch (normally `main`) so future pushes deploy automatically.
+## Required Vercel environment variables
 
-## Required environment variables
+Set these on the Vercel project:
 
-Add these in **Vercel → Project → Settings → Environment Variables** for Production, Preview, and Development:
+### Encrypted server-only variables
 
-- `EXPO_PUBLIC_SUPABASE_URL`
-- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- `DATABASE_URL` — pooled Neon connection string using the `smarttrade_app` role.
+- `BETTER_AUTH_DATABASE_URL` — pooled Neon connection string using the `smarttrade_auth` role.
+- `BETTER_AUTH_SECRET` — high-entropy secret used by Better Auth.
+- `AWS_ACCESS_KEY_ID` — scoped Neon Object Storage credential ID.
+- `AWS_SECRET_ACCESS_KEY` — scoped Neon Object Storage secret.
 
-These values are required because authentication and application data are handled by Supabase. The Supabase publishable/anon key is intended for client applications; never add a Supabase service-role key to this app or expose it in client code.
+### Server configuration
 
-After adding or changing environment variables, trigger a new deployment so the values are included in the web bundle.
+- `BETTER_AUTH_URL` — canonical API origin for the current environment.
+- `AWS_ENDPOINT_URL_S3` — Neon Object Storage S3 endpoint for this branch.
+- `AWS_REGION` — `eu-central-1`.
+- `NEON_STORAGE_BUCKET` — `smarttrade-private`.
 
-For mobile EAS builds, configure the same two variables in the EAS environment used by the build profile.
+### Expo public configuration
 
-## Authentication callback configuration
+- `EXPO_PUBLIC_API_URL` — API origin used by web, Android, and iOS clients.
 
-After the Vercel production URL is known, add that URL to the allowed redirect URLs in the Supabase Authentication URL configuration. Configure the Google provider's web OAuth client and allowed redirect URI in Supabase/Google Cloud before relying on Google sign-in in browsers.
+Only values prefixed with `EXPO_PUBLIC_` are bundled into the client. Never use that prefix for database URLs, Better Auth secrets, or storage credentials.
 
-## Important
+For a Vercel preview, `EXPO_PUBLIC_API_URL` and `BETTER_AUTH_URL` must point to the matching preview API origin. Production values must point to the production domain. The Neon database and storage credentials remain server-only.
 
-- Do not commit `.env` files or credentials to GitHub.
-- Do not use the Supabase service-role key in the mobile or web application.
-- Keep the existing Android and iOS build profiles in `eas.json`; the web export does not replace them.
+## Optional Google OAuth
+
+Google sign-in remains disabled until both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured on the server and the callback URL is registered with Google Cloud.
+
+Set `EXPO_PUBLIC_GOOGLE_AUTH_ENABLED=true` only after the provider is configured and tested. Email/password authentication is available independently.
+
+## Mobile builds
+
+The native apps use the same Vercel API. Configure only `EXPO_PUBLIC_API_URL` in the EAS build environment. Do not place PostgreSQL or Object Storage credentials in EAS client build variables.
+
+The app scheme is `smarttrade://`; it must remain listed in Better Auth trusted origins.
+
+## Deployment
+
+Vercel is configured to:
+
+- Run `npm run build:web`.
+- Publish `dist/`.
+- Keep `/api/*` requests routed to Vercel Functions.
+- Serve Expo Router client routes through the SPA fallback.
+
+The current Vercel project is not connected to the GitHub repository for automatic deployments. Until Git integration is connected, deploy the intended branch explicitly from Vercel.
+
+## Known migration limitations
+
+- Existing Supabase user accounts, passwords, records, and files have not been imported. The source Supabase project or a complete export is required to migrate that data. Password hashes generally cannot be transferred directly into Better Auth.
+- Password-reset email delivery is not configured yet.
+- Google OAuth is disabled until the client secret and callback setup are provided.
+- Run the web preview and native Android/iOS smoke tests before promoting the migration branch to production.
