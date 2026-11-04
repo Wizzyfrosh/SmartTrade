@@ -15,7 +15,7 @@ export default async function handler(req: any, res: any) {
     if (req.method === "GET") {
       const rows = await withUserTransaction(userId, async (db) => {
         const result = await db.query(
-          "SELECT id, name, sku, category, cost_price, selling_price, stock_quantity, low_stock_threshold, barcode, image_url, created_at, updated_at FROM public.products ORDER BY created_at DESC",
+          "SELECT id, name, sku, category, cost_price, selling_price, stock_quantity, low_stock_threshold, barcode, image_url, image_object_key, created_at, updated_at FROM public.products ORDER BY created_at DESC",
         );
         return result.rows;
       });
@@ -40,12 +40,12 @@ export default async function handler(req: any, res: any) {
         const result = await db.query(
           `INSERT INTO public.products
             (id, user_id, name, sku, category, cost_price, selling_price, stock_quantity,
-             low_stock_threshold, barcode, image_url, created_at, updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),NOW())
+             low_stock_threshold, barcode, image_url, image_object_key, created_at, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW(),NOW())
            RETURNING *`,
           [randomUUID(), userId, name, body.sku || null, body.category || null,
             costPrice, sellingPrice, stockQuantity, lowStockThreshold,
-            body.barcode || null, body.imageUrl || null],
+            body.barcode || null, body.imageUrl || null, body.imageObjectKey || null],
         );
         return result.rows[0];
       });
