@@ -64,11 +64,19 @@ export default async function handler(req: any, res: any) {
           );
           if (!inserted.rows[0]) {
             const existing = await db.query(
-              "SELECT user_id FROM public.inventory_adjustments WHERE id = $1",
+              "SELECT user_id, product_id, quantity_delta, reason FROM public.inventory_adjustments WHERE id = $1",
               [adjustmentId],
             );
-            if (existing.rows[0]?.user_id === session.user.id) return;
-            throw new Error("Stock adjustment ID belongs to another account");
+            const prior = existing.rows[0];
+            if (prior?.user_id !== session.user.id) {
+              throw new Error("Stock adjustment ID belongs to another account");
+            }
+            if (prior.product_id !== productId ||
+                Number(prior.quantity_delta) !== quantityDelta ||
+                prior.reason !== reason) {
+              throw new Error("Stock adjustment ID was reused with different data");
+            }
+            return;
           }
 
           const updated = await db.query(
