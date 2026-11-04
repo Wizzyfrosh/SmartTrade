@@ -53,7 +53,7 @@ class NeonService {
   private async mapProducts(rows: any[]): Promise<Product[]> {
     const keys = [...new Set(rows.map((row) => row.imageObjectKey || row.image_object_key).filter(Boolean))] as string[];
     const signedUrls = keys.length
-      ? await request<Record<string, string>>("/api/storage/download-urls", {
+      ? await request<Record<string, string>>("/api/storage/image-urls", {
           method: "POST",
           body: JSON.stringify({ keys }),
         })
