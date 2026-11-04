@@ -196,6 +196,11 @@ class DatabaseService {
         if (!this.db) throw new Error('Database not initialized');
         await this.db.withTransactionAsync(async () => {
             for (const product of products) {
+                const pendingDelete = await this.db!.getFirstAsync<{ id: string }>(
+                    "SELECT id FROM outbox WHERE entity_type = 'product' AND entity_id = ? AND operation = 'DELETE' LIMIT 1",
+                    [product.id]
+                );
+                if (pendingDelete) continue;
                 await this.db!.runAsync(
                     `INSERT INTO products
                      (id,name,sku,category,cost_price,selling_price,stock_quantity,low_stock_threshold,
