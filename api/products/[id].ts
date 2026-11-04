@@ -27,6 +27,15 @@ export default async function handler(req: any, res: any) {
   if (!id) return json(res, 400, { error: "Product ID is required" });
 
   try {
+    if (req.method === "GET") {
+      const product = await withUserTransaction(userId, async (db) => {
+        const result = await db.query("SELECT * FROM public.products WHERE id = $1", [id]);
+        return result.rows[0] ?? null;
+      });
+      if (!product) return json(res, 404, { error: "Product not found" });
+      return json(res, 200, product);
+    }
+
     if (req.method === "PATCH" || req.method === "PUT") {
       const body = req.body ?? {};
       const entries = Object.entries(fields).filter(([key]) => body[key] !== undefined);
@@ -65,7 +74,7 @@ export default async function handler(req: any, res: any) {
       return json(res, 200, { id: deleted.id });
     }
 
-    res.setHeader("Allow", "PUT, PATCH, DELETE");
+    res.setHeader("Allow", "GET, PUT, PATCH, DELETE");
     return json(res, 405, { error: "Method not allowed" });
   } catch (error: any) {
     console.error("Product API error", error);
