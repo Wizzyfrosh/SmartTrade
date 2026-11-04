@@ -21,6 +21,7 @@ if (process.env.NODE_ENV !== "production") {
 
 const trustedOrigins = [
   "https://smarttrade-inventotryapp.vercel.app",
+  "https://dist-git-neon-migration-umanor-wisdom-chizoba-s-projects.vercel.app",
   "smarttrade://",
   "http://localhost:8081",
   "http://localhost:19006",
