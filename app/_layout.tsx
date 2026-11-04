@@ -31,8 +31,8 @@ function InitialLayout() {
 
         const syncWhenReady = async () => {
             try {
-                await dbService.init();
-                if (!disposed) await syncService.syncNow();
+                await dbService.init(session.user.id);
+                if (!disposed) await syncService.syncNow(session.user.id);
             } catch (error) {
                 console.warn('Background synchronization deferred:', error);
             }
