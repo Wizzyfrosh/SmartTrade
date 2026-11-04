@@ -1,5 +1,5 @@
-import { requireAuth } from "../../src/lib/require-auth";
-import { withUserTransaction } from "../../src/lib/db";
+import { requireAuth } from "../src/lib/require-auth";
+import { withUserTransaction } from "../src/lib/db";
 
 export default async function handler(req: any, res: any) {
   const session = await requireAuth(req, res);
