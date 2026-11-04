@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Typography, BorderRadius } from '../../src/constants/theme';
 import { Button, EmptyState, Card, ResponsiveContainer } from '../../src/components';
-import { supabaseService } from '../../src/services/supabase/db';
+import { neonService } from '../../src/services/neon/db';
 import { formatCurrency } from '../../src/utils/currency';
 import { useSettings } from '../../src/contexts/SettingsContext';
 import type { Sale } from '../../src/types';
@@ -25,7 +25,7 @@ export default function Sales() {
     const loadSales = async () => {
         try {
             setLoading(true);
-            const allSales = await supabaseService.getAllSales();
+            const allSales = await neonService.getAllSales();
             setSales(allSales);
         } catch (error) {
             console.error('Failed to load sales:', error);
