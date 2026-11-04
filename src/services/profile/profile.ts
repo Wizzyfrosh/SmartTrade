@@ -28,10 +28,13 @@ export const profileService = {
     const result = await request<{ url: string }>("/api/storage/download-url?key=" + encodeURIComponent(objectKey));
     return result.url;
   },
-  async createImageUpload(contentType: string, target: "avatar" | "product", productId?: string) {
+  async createImageUpload(contentType: string, sizeBytes: number, target: "avatar" | "product", productId?: string) {
+    if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > 5 * 1024 * 1024) {
+      throw new Error("Image must be between 1 byte and 5 MB");
+    }
     return request<{ uploadUrl: string; objectKey: string; expiresIn: number }>("/api/storage/upload-url", {
       method: "POST",
-      body: JSON.stringify({ contentType, target, productId }),
+      body: JSON.stringify({ contentType, sizeBytes, target, productId }),
     });
   },
 };
