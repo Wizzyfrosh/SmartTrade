@@ -17,7 +17,7 @@ import {
 import { useRouter, Link } from 'expo-router';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { Input, Button } from '../../src/components';
-import { supabase } from '../../src/services/supabase/client';
+import { authClient } from '../../src/services/auth/client';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleAuthButton } from '../../src/components/GoogleAuthButton';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -143,25 +143,20 @@ export default function Signup() {
             return;
         }
 
-        if (password.length < 6) {
-            Alert.alert('Error', 'Password must be at least 6 characters');
+        if (password.length < 8) {
+            Alert.alert('Error', 'Password must be at least 8 characters');
             return;
         }
 
         try {
             setLoading(true);
-            const { error } = await supabase.auth.signUp({
-                email,
+            const { error } = await authClient.signUp.email({
+                name: name.trim(),
+                email: email.trim().toLowerCase(),
                 password,
-                options: {
-                    data: {
-                        full_name: name,
-                        country: selectedCountry,
-                    },
-                },
             });
 
-            if (error) throw error;
+            if (error) throw new Error(error.message);
 
             // Save currency based on selected country
             const currencyInfo = getCurrencyByCountry(selectedCountry);
@@ -174,8 +169,8 @@ export default function Signup() {
 
             Alert.alert(
                 'Success! 🎉',
-                'Account created successfully! Please sign in.',
-                [{ text: 'Sign In', onPress: () => router.replace('/auth/login') }]
+                'Your account is ready. You are now signed in.',
+                [{ text: 'Continue', onPress: () => router.replace('/(tabs)') }]
             );
         } catch (error: any) {
             Alert.alert('Signup Failed', error.message);
