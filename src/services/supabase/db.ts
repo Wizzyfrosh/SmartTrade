@@ -1,274 +1,146 @@
-import { supabase } from './client';
-import { Product, Sale } from '../../types';
+import type { Product, Sale } from "../../types";
+import { apiFetch } from "../auth/api";
 
-import { decode } from 'base64-arraybuffer';
-
-
-class SupabaseService {
-
-    async getDashboardStats() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const startOfDay = today.getTime();
-
-        try {
-            const [
-                { count: totalProducts },
-                { count: lowStockItems },
-                { data: todaySales }
-            ] = await Promise.all([
-                supabase.from('products').select('*', { count: 'exact', head: true }),
-                supabase.from('products').select('*', { count: 'exact', head: true }).lte('stock_quantity', 5).gt('stock_quantity', 0),
-                supabase.from('sales').select('total_revenue, profit').gte('sale_date', startOfDay)
-            ]);
-
-            const todayRevenue = todaySales?.reduce((sum, sale) => sum + (sale.total_revenue || 0), 0) || 0;
-            const todayProfit = todaySales?.reduce((sum, sale) => sum + (sale.profit || 0), 0) || 0;
-
-            return {
-                totalProducts: totalProducts || 0,
-                lowStockItems: lowStockItems || 0,
-                todayRevenue,
-                todayProfit,
-            };
-        } catch (error) {
-            console.error('Error fetching dashboard stats:', error);
-            return {
-                totalProducts: 0,
-                lowStockItems: 0,
-                todayRevenue: 0,
-                todayProfit: 0,
-            };
-        }
-    }
-
-    async getLowStockProducts(): Promise<Product[]> {
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .lte('stock_quantity', 5)
-            .gt('stock_quantity', 0)
-            .limit(3);
-
-        if (error) {
-            console.error('Error fetching low stock products:', error);
-            return [];
-        }
-
-        return data.map(this.mapToProduct);
-    }
-
-    async getTodaySales(): Promise<Sale[]> {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const startOfDay = today.getTime();
-
-        const { data, error } = await supabase
-            .from('sales')
-            .select('*')
-            .gte('sale_date', startOfDay)
-            .order('sale_date', { ascending: false })
-            .limit(5);
-
-        if (error) {
-            console.error('Error fetching today sales:', error);
-            return [];
-        }
-
-        return data.map(this.mapToSale);
-    }
-
-    async getAllSales(): Promise<Sale[]> {
-        const { data, error } = await supabase
-            .from('sales')
-            .select('*')
-            .order('sale_date', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching all sales:', error);
-            return [];
-        }
-
-        return data.map(this.mapToSale);
-    }
-
-    async getAllProducts(): Promise<Product[]> {
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching all products:', error);
-            return [];
-        }
-
-        return data.map(this.mapToProduct);
-    }
-
-    async searchProducts(query: string): Promise<Product[]> {
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .ilike('name', `%${query}%`)
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Error searching products:', error);
-            return [];
-        }
-
-        return data.map(this.mapToProduct);
-    }
-
-    async createSale(sale: Omit<Sale, 'id' | 'createdAt' | 'synced'>, userId: string): Promise<Sale> {
-        const { data, error } = await supabase
-            .from('sales')
-            .insert({
-                product_id: sale.productId,
-                quantity: sale.quantity,
-                unit_price: sale.unitPrice,
-                cost_price: sale.costPrice,
-                total_revenue: sale.totalRevenue,
-                total_cost: sale.totalCost,
-                profit: sale.profit,
-                sale_date: sale.saleDate,
-                user_id: userId,
-            })
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // Update product stock
-        const { data: product } = await supabase
-            .from('products')
-            .select('stock_quantity')
-            .eq('id', sale.productId)
-            .single();
-
-        if (product) {
-            await supabase
-                .from('products')
-                .update({ stock_quantity: product.stock_quantity - sale.quantity })
-                .eq('id', sale.productId);
-        }
-
-        return this.mapToSale(data);
-    }
-
-    async uploadProductImage(uri: string): Promise<string> {
-        try {
-            const response = await fetch(uri);
-            const blob = await response.blob();
-            const arrayBuffer = await new Response(blob).arrayBuffer();
-
-            const fileName = `${Date.now()}.jpg`;
-            const filePath = `product-images/${fileName}`;
-
-            const { data, error } = await supabase.storage
-                .from('products')
-                .upload(filePath, arrayBuffer, {
-                    contentType: 'image/jpeg',
-                });
-
-            if (error) throw error;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('products')
-                .getPublicUrl(filePath);
-
-            return publicUrl;
-        } catch (error) {
-            console.error('Error uploading image:', error);
-            throw error;
-        }
-    }
-
-    async updateProduct(product: Product): Promise<void> {
-        const { error } = await supabase
-            .from('products')
-            .update({
-                name: product.name,
-                sku: product.sku,
-                category: product.category,
-                cost_price: product.costPrice,
-                selling_price: product.sellingPrice,
-                stock_quantity: product.stockQuantity,
-                low_stock_threshold: product.lowStockThreshold,
-                barcode: product.barcode,
-                image_url: product.imageUrl,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', product.id);
-
-        if (error) {
-            console.error('Error updating product:', error);
-            throw error;
-        }
-    }
-
-    async deleteProduct(id: string): Promise<void> {
-        const { error } = await supabase
-            .from('products')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            console.error('Error deleting product:', error);
-            throw error;
-        }
-    }
-
-    async getSalesByDateRange(startDate: number, endDate: number): Promise<Sale[]> {
-        const { data, error } = await supabase
-            .from('sales')
-            .select('*')
-            .gte('sale_date', startDate)
-            .lte('sale_date', endDate)
-            .order('sale_date', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching sales by date range:', error);
-            return [];
-        }
-
-        return data.map(this.mapToSale);
-    }
-
-    private mapToProduct(row: any): Product {
-        return {
-            id: row.id,
-            name: row.name,
-            sku: row.sku,
-            category: row.category,
-            costPrice: row.cost_price,
-            sellingPrice: row.selling_price,
-            stockQuantity: row.stock_quantity,
-            lowStockThreshold: row.low_stock_threshold,
-            barcode: row.barcode,
-            imageUrl: row.image_url,
-            createdAt: new Date(row.created_at).getTime(),
-            updatedAt: new Date(row.updated_at || row.created_at).getTime(),
-            synced: true,
-        };
-    }
-
-    private mapToSale(row: any): Sale {
-        return {
-            id: row.id,
-            productId: row.product_id,
-            quantity: row.quantity,
-            unitPrice: row.unit_price,
-            costPrice: row.cost_price,
-            totalRevenue: row.total_revenue,
-            totalCost: row.total_cost,
-            profit: row.profit,
-            saleDate: row.sale_date,
-            createdAt: new Date(row.created_at).getTime(),
-            synced: true,
-        };
-    }
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await apiFetch(path, init);
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.error || `Request failed (${response.status})`);
+  }
+  return payload as T;
 }
 
-export const supabaseService = new SupabaseService();
+function mapToProduct(row: any): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    sku: row.sku ?? undefined,
+    category: row.category ?? undefined,
+    costPrice: Number(row.cost_price),
+    sellingPrice: Number(row.selling_price),
+    stockQuantity: Number(row.stock_quantity),
+    lowStockThreshold: Number(row.low_stock_threshold),
+    barcode: row.barcode ?? undefined,
+    imageUrl: row.image_url ?? undefined,
+    createdAt: new Date(row.created_at).getTime(),
+    updatedAt: new Date(row.updated_at || row.created_at).getTime(),
+    synced: true,
+  };
+}
+
+function mapToSale(row: any): Sale {
+  return {
+    id: row.id,
+    productId: row.product_id,
+    quantity: Number(row.quantity),
+    unitPrice: Number(row.unit_price),
+    costPrice: Number(row.cost_price),
+    totalRevenue: Number(row.total_revenue),
+    totalCost: Number(row.total_cost),
+    profit: Number(row.profit),
+    saleDate: Number(row.sale_date),
+    createdAt: new Date(row.created_at).getTime(),
+    synced: true,
+  };
+}
+
+class SmartTradeApiService {
+  async getDashboardStats() {
+    const stats = await request<any>("/api/dashboard");
+    return {
+      totalProducts: Number(stats.total_products || 0),
+      lowStockItems: Number(stats.low_stock_items || 0),
+      outOfStockItems: Number(stats.out_of_stock_items || 0),
+      stockValue: Number(stats.stock_value || 0),
+      todayRevenue: Number(stats.today_revenue || 0),
+      todayProfit: Number(stats.today_profit || 0),
+      todaySales: Number(stats.today_sales_count || 0),
+    };
+  }
+
+  async getLowStockProducts(): Promise<Product[]> {
+    const products = await this.getAllProducts();
+    return products
+      .filter((product) => product.stockQuantity > 0 &&
+        product.stockQuantity <= product.lowStockThreshold)
+      .slice(0, 3);
+  }
+
+  async getTodaySales(): Promise<Sale[]> {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = start.getTime() + 24 * 60 * 60 * 1000;
+    return (await this.getAllSales())
+      .filter((sale) => sale.saleDate >= start.getTime() && sale.saleDate < end)
+      .slice(0, 5);
+  }
+
+  async getAllSales(): Promise<Sale[]> {
+    const rows = await request<any[]>("/api/sales");
+    return rows.map(mapToSale);
+  }
+
+  async getAllProducts(): Promise<Product[]> {
+    const rows = await request<any[]>("/api/products");
+    return rows.map(mapToProduct);
+  }
+
+  async searchProducts(query: string): Promise<Product[]> {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return this.getAllProducts();
+    return (await this.getAllProducts()).filter((product) =>
+      product.name.toLowerCase().includes(normalized) ||
+      product.sku?.toLowerCase().includes(normalized) ||
+      product.barcode?.toLowerCase().includes(normalized)
+    );
+  }
+
+  async createSale(
+    sale: Omit<Sale, "id" | "createdAt" | "synced">,
+    _legacyUserId?: string,
+  ): Promise<Sale> {
+    const row = await request<any>("/api/sales", {
+      method: "POST",
+      body: JSON.stringify({
+        productId: sale.productId,
+        quantity: sale.quantity,
+        unitPrice: sale.unitPrice,
+        saleDate: sale.saleDate,
+      }),
+    });
+    return mapToSale(row);
+  }
+
+  async uploadProductImage(_uri: string): Promise<string> {
+    throw new Error("Product image uploads are temporarily unavailable while private Neon object storage is being connected.");
+  }
+
+  async updateProduct(product: Product): Promise<void> {
+    await request(`/api/products/${encodeURIComponent(product.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        name: product.name,
+        sku: product.sku,
+        category: product.category,
+        costPrice: product.costPrice,
+        sellingPrice: product.sellingPrice,
+        stockQuantity: product.stockQuantity,
+        lowStockThreshold: product.lowStockThreshold,
+        barcode: product.barcode,
+        imageUrl: product.imageUrl,
+      }),
+    });
+  }
+
+  async deleteProduct(id: string): Promise<void> {
+    await request(`/api/products/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+
+  async getSalesByDateRange(startDate: number, endDate: number): Promise<Sale[]> {
+    return (await this.getAllSales()).filter(
+      (sale) => sale.saleDate >= startDate && sale.saleDate <= endDate,
+    );
+  }
+}
+
+export const supabaseService = new SmartTradeApiService();
