@@ -15,7 +15,6 @@ export const storageClient = new S3Client({
   endpoint,
   forcePathStyle: true,
   requestChecksumCalculation: "WHEN_REQUIRED",
-  requestChecksumCalculation: "WHEN_REQUIRED",
   credentials: { accessKeyId, secretAccessKey },
 });
 
