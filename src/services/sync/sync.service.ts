@@ -13,16 +13,17 @@ type SyncResult = {
 let activeSync: Promise<SyncResult> | null = null;
 
 export const syncService = {
-  syncNow(): Promise<SyncResult> {
+  syncNow(userId: string): Promise<SyncResult> {
     if (activeSync) return activeSync;
-    activeSync = this.runSync().finally(() => {
+    activeSync = this.runSync(userId).finally(() => {
       activeSync = null;
     });
     return activeSync;
   },
 
-  async runSync(): Promise<SyncResult> {
-    await dbService.init();
+  async runSync(userId: string): Promise<SyncResult> {
+    if (!userId) throw new Error('A signed-in user is required to synchronize local data');
+    await dbService.init(userId);
     const network = await Network.getNetworkStateAsync();
     if (network.isConnected === false || network.isInternetReachable === false) {
       return {
