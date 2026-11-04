@@ -3,7 +3,7 @@
 CREATE TABLE IF NOT EXISTS public.inventory_adjustments (
   id text PRIMARY KEY,
   user_id text NOT NULL,
-  product_id text NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  product_id text NOT NULL, -- retain adjustment history if a product is later deleted
   quantity_delta integer NOT NULL CHECK (quantity_delta <> 0),
   reason text NOT NULL DEFAULT 'manual_adjustment'
     CHECK (reason IN ('manual_adjustment', 'correction', 'damage', 'return', 'opening_balance')),
