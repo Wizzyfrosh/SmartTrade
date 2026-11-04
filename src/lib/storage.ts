@@ -1,8 +1,12 @@
 import { S3Client } from "@aws-sdk/client-s3";
 
 const isPreview = process.env.VERCEL_ENV === "preview";
-const endpoint = process.env.AWS_ENDPOINT_URL_S3;
-const region = process.env.AWS_REGION;
+const endpoint = isPreview
+  ? process.env.SMARTTRADE_PREVIEW_STORAGE_ENDPOINT
+  : process.env.AWS_ENDPOINT_URL_S3;
+const region = isPreview
+  ? process.env.SMARTTRADE_PREVIEW_STORAGE_REGION
+  : process.env.AWS_REGION;
 const accessKeyId = isPreview
   ? process.env.SMARTTRADE_PREVIEW_STORAGE_ACCESS_KEY_ID
   : process.env.AWS_ACCESS_KEY_ID;
