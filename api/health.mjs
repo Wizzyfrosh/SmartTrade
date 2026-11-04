@@ -7,7 +7,6 @@ export default async function handler(_req, res) {
       dataPool.query("SELECT 1"),
       authPool.query("SELECT 1"),
     ]);
-
     return res.status(200).json({
       status: "ok",
       database: "connected",
@@ -21,6 +20,6 @@ export default async function handler(_req, res) {
     });
   } catch (error) {
     console.error("Health check failed:", error);
-    return res.status(503).json({ status: "error", database: "unavailable" });
+    return res.status(503).json({ status: "error", message: "Backend unavailable" });
   }
 }
