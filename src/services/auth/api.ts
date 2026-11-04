@@ -9,6 +9,7 @@ const API_URL =
 
 export async function apiFetch(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
+  headers.set("accept", "application/json");
   if (!headers.has("content-type") && init.body && typeof init.body === "string") {
     headers.set("content-type", "application/json");
   }
