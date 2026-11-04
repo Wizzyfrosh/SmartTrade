@@ -33,7 +33,7 @@ export default async function handler(req: any, res: any) {
     const entityType = item?.entityType;
     const operation = item?.operation;
     const payload = item?.payload && typeof item.payload === "object" ? item.payload : null;
-    if (!id || !payload || !["product", "sale", "stock_adjustment"].includes(entityType) ||
+    if (!id || id.length > 128 || !payload || !["product", "sale", "stock_adjustment"].includes(entityType) ||
         !["INSERT", "UPDATE", "DELETE"].includes(operation)) {
       results.push({ id, status: "failed", error: "Invalid outbox item" });
       continue;
