@@ -29,12 +29,6 @@ export default async function handler(req: any, res: any) {
 
   try {
     if (req.method === "GET") {
-      const imageKey = body.imageObjectKey;
-      if (imageKey !== undefined &&
-          (typeof imageKey !== "string" || !(await verifyPrivateImageObject(imageKey, `users/${userId}/products/${id}/`)))) {
-        return json(res, 400, { error: "Product image upload is missing, invalid or exceeds 5 MB" });
-      }
-
       const product = await withUserTransaction(userId, async (db) => {
         const result = await db.query("SELECT * FROM public.products WHERE id = $1", [id]);
         return result.rows[0] ?? null;
@@ -64,8 +58,14 @@ export default async function handler(req: any, res: any) {
           return json(res, 400, { error: `Invalid ${key}` });
         if (key === "name" && (typeof value !== "string" || !value.trim()))
           return json(res, 400, { error: "Product name cannot be empty" });
-        if (key === "imageObjectKey" && (typeof value !== "string" || !value.startsWith(`users/${userId}/products/${id}/`) || value.length > 1024))
+        if (key === "imageObjectKey" && value !== null &&
+            (typeof value !== "string" || !value.startsWith(`users/${userId}/products/${id}/`) || value.length > 1024))
           return json(res, 400, { error: "Invalid product image key" });
+      }
+
+      if (body.imageObjectKey !== undefined && body.imageObjectKey !== null &&
+          !(await verifyPrivateImageObject(body.imageObjectKey, `users/${userId}/products/${id}/`))) {
+        return json(res, 400, { error: "Product image upload is missing, invalid or exceeds 5 MB" });
       }
 
       const product = await withUserTransaction(userId, async (db) => {
