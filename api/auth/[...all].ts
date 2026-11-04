@@ -1,10 +1,12 @@
 import { toNodeHandler } from "better-auth/node";
-import { auth } from "../../server/auth";
+export const config = { api: { bodyParser: false } };
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-export default toNodeHandler(auth.handler);
+export default async function handler(req: any, res: any) {
+  try {
+    const { auth } = await import("../../server/auth");
+    return toNodeHandler(auth.handler)(req, res);
+  } catch (error) {
+    console.error("Better Auth route initialization failed:", error);
+    return res.status(500).json({ error: "Authentication service unavailable" });
+  }
+}
