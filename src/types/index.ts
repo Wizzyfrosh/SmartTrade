@@ -1,6 +1,6 @@
 export interface Product { id: string; name: string; sku?: string; category?: string; costPrice: number; sellingPrice: number; stockQuantity: number; lowStockThreshold: number; barcode?: string; imageUrl?: string; imageObjectKey?: string; createdAt: number; updatedAt: number; synced: boolean; }
 export interface Sale { id: string; productId: string; productName?: string; quantity: number; unitPrice: number; costPrice: number; totalRevenue: number; totalCost: number; profit: number; saleDate: number; createdAt: number; synced: boolean; }
-export interface OutboxItem { id: string; entityType: 'product' | 'sale'; entityId: string; operation: 'INSERT' | 'UPDATE' | 'DELETE'; payload: string; createdAt: number; retryCount: number; lastError?: string | null; }
+export interface OutboxItem { id: string; entityType: 'product' | 'sale' | 'stock_adjustment'; entityId: string; operation: 'INSERT' | 'UPDATE' | 'DELETE'; payload: string; createdAt: number; retryCount: number; lastError?: string | null; }
 export interface UserProfile { id: string; email?: string; fullName?: string; businessName?: string; countryCode?: string; currencyCode?: string; createdAt: number; updatedAt: number; }
 export interface DashboardStats { totalProducts: number; lowStockItems: number; outOfStockItems: number; todayRevenue: number; todayProfit: number; todaySales: number; stockValue: number; }
 export interface ReportPeriod { label: string; value: 'today' | 'week' | 'month' | 'custom'; startDate: number; endDate: number; }
