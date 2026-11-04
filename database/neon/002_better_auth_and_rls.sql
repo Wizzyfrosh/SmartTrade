@@ -1,5 +1,5 @@
--- SmartTrade Better Auth + API-owned row-level security
--- Run after 001_initial_schema.sql. Does not remove existing Supabase-era tables.
+-- SmartTrade self-hosted Better Auth schema and API-enforced row-level security.
+-- Run after 001_initial_schema.sql on a fresh Neon database.
 
 CREATE TABLE IF NOT EXISTS public."user" (
   id text PRIMARY KEY,
@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS public."verification" (
 
 CREATE INDEX IF NOT EXISTS idx_session_user_id ON public."session"("userId");
 CREATE INDEX IF NOT EXISTS idx_account_user_id ON public."account"("userId");
+CREATE UNIQUE INDEX IF NOT EXISTS account_provider_account_unique
+  ON public."account"("providerId", "accountId");
 CREATE INDEX IF NOT EXISTS idx_verification_identifier ON public."verification"(identifier);
 
 CREATE TABLE IF NOT EXISTS public.smarttrade_profiles (
@@ -61,8 +63,8 @@ CREATE TABLE IF NOT EXISTS public.smarttrade_profiles (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- API requests set this transaction-local value only after Better Auth validates
--- the session cookie. It is intentionally not accepted from request JSON.
+-- The API sets this transaction-local value only after Better Auth validates
+-- the session. It is never accepted from request JSON or client input.
 CREATE OR REPLACE FUNCTION public.smarttrade_current_user_id()
 RETURNS text
 LANGUAGE sql
@@ -75,82 +77,28 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.smarttrade_profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS products_server_user_scope ON public.products;
 CREATE POLICY products_server_user_scope ON public.products
   FOR ALL TO smarttrade_app
   USING (user_id = public.smarttrade_current_user_id())
   WITH CHECK (user_id = public.smarttrade_current_user_id());
 
+DROP POLICY IF EXISTS sales_server_user_scope ON public.sales;
 CREATE POLICY sales_server_user_scope ON public.sales
   FOR ALL TO smarttrade_app
   USING (user_id = public.smarttrade_current_user_id())
   WITH CHECK (user_id = public.smarttrade_current_user_id());
 
+DROP POLICY IF EXISTS profiles_server_user_scope ON public.smarttrade_profiles;
 CREATE POLICY profiles_server_user_scope ON public.smarttrade_profiles
   FOR ALL TO smarttrade_app
   USING (user_id = public.smarttrade_current_user_id())
   WITH CHECK (user_id = public.smarttrade_current_user_id());
 
-CREATE OR REPLACE FUNCTION public.create_sale_for_user(
-  p_user_id text,
-  p_id text,
-  p_product_id text,
-  p_quantity integer,
-  p_unit_price numeric,
-  p_cost_price numeric,
-  p_total_revenue numeric,
-  p_total_cost numeric,
-  p_profit numeric,
-  p_sale_date bigint
-) RETURNS public.sales
-LANGUAGE plpgsql
-SECURITY INVOKER
-SET search_path = public, pg_temp
-AS $$
-DECLARE
-  v_product public.products%ROWTYPE;
-  v_sale public.sales%ROWTYPE;
-BEGIN
-  IF p_user_id IS NULL OR p_user_id <> public.smarttrade_current_user_id() THEN
-    RAISE EXCEPTION 'Authentication required' USING ERRCODE = '28000';
-  END IF;
-  IF p_quantity IS NULL OR p_quantity <= 0 THEN
-    RAISE EXCEPTION 'Quantity must be greater than zero' USING ERRCODE = '22023';
-  END IF;
-
-  SELECT * INTO v_product
-  FROM public.products
-  WHERE id = p_product_id AND user_id = p_user_id
-  FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Product not found' USING ERRCODE = 'P0002';
-  END IF;
-  IF v_product.stock_quantity < p_quantity THEN
-    RAISE EXCEPTION 'Insufficient stock' USING ERRCODE = '23514';
-  END IF;
-
-  UPDATE public.products
-  SET stock_quantity = stock_quantity - p_quantity, updated_at = now()
-  WHERE id = p_product_id AND user_id = p_user_id;
-
-  INSERT INTO public.sales (
-    id, user_id, product_id, quantity, unit_price, cost_price,
-    total_revenue, total_cost, profit, sale_date
-  ) VALUES (
-    p_id, p_user_id, p_product_id, p_quantity, p_unit_price, p_cost_price,
-    p_total_revenue, p_total_cost, p_profit, p_sale_date
-  )
-  RETURNING * INTO v_sale;
-
-  RETURN v_sale;
-END;
-$$;
-
-GRANT USAGE ON SCHEMA public TO smarttrade_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public."user", public."session",
-  public."account", public."verification", public.smarttrade_profiles,
-  public.products, public.sales TO smarttrade_app;
+GRANT USAGE ON SCHEMA public TO smarttrade_app, smarttrade_auth;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.products, public.sales,
+  public.smarttrade_profiles TO smarttrade_app;
 GRANT EXECUTE ON FUNCTION public.smarttrade_current_user_id() TO smarttrade_app;
-GRANT EXECUTE ON FUNCTION public.create_sale_for_user(
-  text, text, text, integer, numeric, numeric, numeric, numeric, numeric, bigint
-) TO smarttrade_app;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."user", public."session",
+  public."account", public."verification" TO smarttrade_auth;
