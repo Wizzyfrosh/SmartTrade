@@ -18,6 +18,10 @@ export default async function handler(req: any, res: any) {
     return json(res, 405, { error: "Method not allowed" });
   }
 
+  if (typeof req.body?.userId !== "string" || req.body.userId !== session.user.id) {
+    return json(res, 403, { error: "Account changed. Sign in again before synchronizing local data." });
+  }
+
   const items = Array.isArray(req.body?.items) ? req.body.items : [];
   if (items.length < 1 || items.length > 50) {
     return json(res, 400, { error: "Send between 1 and 50 outbox items" });
