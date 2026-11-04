@@ -1,95 +1,80 @@
-# Deployment Guide
+# SmartTrade Deployment Guide
 
-This guide covers how to compile and deploy your **SmartTrade** application for Android, iOS, and the Web.
+SmartTrade is an Expo Router application built with React Native. The same app codebase supports Android, iOS, and the web.
 
-## Prerequisites
-1.  **EAS CLI**: Ensure you have the Expo Application Services CLI installed.
-    ```bash
-    npm install -g eas-cli
-    ```
-2.  **Expo Account**: You need an account at [expo.dev](https://expo.dev).
-    ```bash
-    eas login
-    ```
-3.  **Project Init**: Initialize the project (if you haven't already linked it).
-    ```bash
-    eas project:init
-    ```
+## Requirements
 
----
+- Node.js 22.x
+- npm
+- A Supabase project
 
-## 1. Android Build (APK & AAB)
+## Run locally
 
-The `eas.json` file is already configured with two profiles for Android:
-*   **preview**: Builds a standard `.apk` file that you can install directly on your device for testing.
-*   **production**: Builds an `.aab` (Android App Bundle) required for the Google Play Store.
+Install dependencies:
 
-### To Build an APK (For Testing):
 ```bash
-eas build -p android --profile preview
-```
-*   Once finished, you will get a QR code/link to download the APK.
-
-### To Build an AAB (For Play Store):
-```bash
-eas build -p android --profile production
-```
-*   This bundle is optimized for distribution. You can manually upload this to the Google Play Console or configure EAS Submit to do it automatically.
-
----
-
-## 2. iOS Build
-
-*Note: You need a paid Apple Developer Account to build for distribution.*
-
-### To Build for Internal Distribution (Ad Hoc / TestFlight):
-```bash
-eas build -p ios --profile preview
+npm ci
 ```
 
-### To Build for App Store:
+Start the native development server:
+
 ```bash
-eas build -p ios --profile production
+npm start
 ```
 
----
+Start the web development server:
 
-## 3. Web Deployment (Hosting)
-
-You can deploy the web version of your app to any static hosting provider (Vercel, Netlify, Firebase, GitHub Pages).
-
-### Step A: Export the Web Bundle
-Run the following command to compile the web version into a static `dist` folder:
 ```bash
-npx expo export -p web
+npm run web
 ```
-*   This creates a `dist` folder containing your HTML, CSS, and JS.
 
-### Step B: Deploy to Vercel (Recommended)
-1.  Install Vercel CLI: `npm i -g vercel`
-2.  Run deploy:
-    ```bash
-    vercel
-    ```
-3.  Follow the prompts. When asked "Which directory is your code located in?", verify it detects the root. When asked about build settings, you can override the **Output Directory** to `dist` if it doesn't auto-detect.
+Create the production web bundle:
 
-### Step C: Deploy to Netlify
-1.  Install Netlify CLI: `npm i -g netlify-cli`
-2.  Run deploy:
-    ```bash
-    netlify deploy --prod --dir=dist
-    ```
-
----
-
-## Environment Variables
-Since you are using Supabase, ensure your `.env` secrets are configured in EAS and your web host.
-
-### For Mobile (EAS):
 ```bash
-eas secret:push
+npm run build:web
 ```
-*   Add `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 
-### For Web (Vercel/Netlify):
-*   Add the environment variables in the project settings dashboard of your hosting provider.
+Expo exports the browser application into the `dist/` directory.
+
+To preview the exported bundle locally, run:
+
+```bash
+npx serve dist
+```
+
+## Deploy to Vercel
+
+The repository includes a root-level `vercel.json`. It configures Vercel to:
+
+- Run `npm run build:web`
+- Publish the `dist/` directory
+- Use SPA rewrites so Expo Router URLs resolve when refreshed directly
+
+Import the `Wizzyfrosh/SmartTrade` GitHub repository into Vercel. Keep the project root set to the repository root. Vercel should read the build and output settings from `vercel.json`.
+
+For predictable builds, select Node.js 22.x in the Vercel project settings.
+
+After the initial deployment, connect the production branch (normally `main`) so future pushes deploy automatically.
+
+## Required environment variables
+
+Add these in **Vercel → Project → Settings → Environment Variables** for Production, Preview, and Development:
+
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+
+These values are required because authentication and application data are handled by Supabase. The Supabase publishable/anon key is intended for client applications; never add a Supabase service-role key to this app or expose it in client code.
+
+After adding or changing environment variables, trigger a new deployment so the values are included in the web bundle.
+
+For mobile EAS builds, configure the same two variables in the EAS environment used by the build profile.
+
+## Authentication callback configuration
+
+After the Vercel production URL is known, add that URL to the allowed redirect URLs in the Supabase Authentication URL configuration. Configure the Google provider's web OAuth client and allowed redirect URI in Supabase/Google Cloud before relying on Google sign-in in browsers.
+
+## Important
+
+- Do not commit `.env` files or credentials to GitHub.
+- Do not use the Supabase service-role key in the mobile or web application.
+- Keep the existing Android and iOS build profiles in `eas.json`; the web export does not replace them.
