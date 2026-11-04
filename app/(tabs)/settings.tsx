@@ -43,6 +43,18 @@ export default function Settings() {
         setLocalThreshold(lowStockThreshold.toString());
     }, [lowStockThreshold]);
 
+    useEffect(() => {
+        let active = true;
+        if (user?.image?.startsWith('users/')) {
+            neonService.getPrivateImageUrl(user.image)
+                .then((url) => { if (active) setAvatarUrl(url); })
+                .catch(() => { if (active) setAvatarUrl(null); });
+        } else {
+            setAvatarUrl(user?.image || null);
+        }
+        return () => { active = false; };
+    }, [user?.image]);
+
     const handleThresholdChange = (text: string) => {
         setLocalThreshold(text);
         const num = parseInt(text);
@@ -153,7 +165,7 @@ export default function Settings() {
                                 <View style={styles.avatar}>
                                     {avatarUrl || (user?.image && !user.image.startsWith('users/') ? user.image : null) ? (
                                         <Image
-                                            source={{ uri: avatarUrl || user.image }}
+                                            source={{ uri: avatarUrl || (user?.image && !user.image.startsWith('users/') ? user.image : '') }}
                                             style={styles.avatarImage}
                                         />
                                     ) : (
