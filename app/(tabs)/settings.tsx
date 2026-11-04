@@ -15,6 +15,8 @@ import { authClient } from '../../src/services/auth/client';
 import { COUNTRY_CURRENCY_MAP } from '../../src/utils/currency';
 import { useSettings } from '../../src/contexts/SettingsContext';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { profileService } from '../../src/services/profile/profile';
 
 export default function Settings() {
     const { signOut, user } = useAuth();
@@ -41,6 +43,19 @@ export default function Settings() {
         setLocalThreshold(lowStockThreshold.toString());
     }, [lowStockThreshold]);
 
+    useEffect(() => {
+        let active = true;
+        profileService.get().then(async (profile) => {
+            if (!active) return;
+            setBusinessName(profile.businessName || '');
+            if (profile.avatarObjectKey) {
+                const url = await profileService.getPrivateImageUrl(profile.avatarObjectKey);
+                if (active) setAvatarUrl(url);
+            }
+        }).catch((error) => console.warn('Could not load business profile:', error));
+        return () => { active = false; };
+    }, []);
+
     const handleThresholdChange = (text: string) => {
         setLocalThreshold(text);
         const num = parseInt(text);
@@ -51,6 +66,8 @@ export default function Settings() {
 
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [editName, setEditName] = useState('');
+    const [businessName, setBusinessName] = useState('');
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isCurrencyModalVisible, setIsCurrencyModalVisible] = useState(false);
     const [isThemeModalVisible, setIsThemeModalVisible] = useState(false);
 
@@ -65,6 +82,7 @@ export default function Settings() {
             const { error } = await authClient.updateUser({ name: editName.trim() });
 
             if (error) throw error;
+            await profileService.update({ businessName: businessName.trim() });
 
             Alert.alert('Success', 'Profile updated successfully');
             setIsEditingProfile(false);
@@ -96,10 +114,42 @@ export default function Settings() {
     ];
 
     const handlePickImage = async () => {
-        Alert.alert(
-            'Profile photo upload unavailable',
-            'Profile photos will be enabled after private Neon object storage is connected.'
-        );
+        try {
+            const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permission.granted) {
+                Alert.alert('Permission required', 'Allow photo library access to select a profile image.');
+                return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.82,
+            });
+            if (result.canceled || !result.assets[0]) return;
+            const asset = result.assets[0];
+            const contentType = asset.mimeType || 'image/jpeg';
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) {
+                Alert.alert('Unsupported image', 'Choose a JPEG, PNG or WebP image.');
+                return;
+            }
+            setLoading(true);
+            const upload = await profileService.createImageUpload(contentType, 'avatar');
+            const uploaded = await FileSystem.uploadAsync(upload.uploadUrl, asset.uri, {
+                httpMethod: 'PUT',
+                uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+                headers: { 'Content-Type': contentType },
+            });
+            if (uploaded.status < 200 || uploaded.status >= 300) {
+                throw new Error('Image upload failed. Please try again.');
+            }
+            await profileService.update({ avatarObjectKey: upload.objectKey });
+            setAvatarUrl(await profileService.getPrivateImageUrl(upload.objectKey));
+        } catch (error: any) {
+            Alert.alert('Upload failed', error?.message || 'Unable to update profile image.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -117,9 +167,9 @@ export default function Settings() {
                         <View style={styles.profileCard}>
                             <TouchableOpacity onPress={handlePickImage} >
                                 <View style={styles.avatar}>
-                                    {user?.image ? (
+                                    {(avatarUrl || user?.image) ? (
                                         <Image
-                                            source={{ uri: user.image }}
+                                            source={{ uri: avatarUrl || user?.image || '' }}
                                             style={styles.avatarImage}
                                         />
                                     ) : (
@@ -234,6 +284,12 @@ export default function Settings() {
                                     value={editName}
                                     onChangeText={setEditName}
                                     placeholder="Enter your full name"
+                                />
+                                <Input
+                                    label="Business Name"
+                                    value={businessName}
+                                    onChangeText={setBusinessName}
+                                    placeholder="Enter your business name"
                                 />
 
                                 <Button
