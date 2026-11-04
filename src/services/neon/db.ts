@@ -83,7 +83,7 @@ class NeonService {
 
   async searchProducts(query: string): Promise<Product[]> {
     const rows = await request<any[]>(`/api/data/products?q=${encodeURIComponent(query)}`);
-    return Promise.all(rows.map(mapProduct));
+    return this.mapProducts(rows);
   }
 
   async createSale(sale: Omit<Sale, "id" | "createdAt" | "synced">, _userId?: string): Promise<Sale> {
@@ -123,7 +123,8 @@ class NeonService {
   }
 
   async getPrivateImageUrl(key: string): Promise<string> {
-    return (await signedImageUrl(key)) || "";
+    const result = await request<{ url: string }>(`/api/storage/download-url?key=${encodeURIComponent(key)}`);
+    return result.url;
   }
 
   async updateProduct(product: Product): Promise<void> {
@@ -148,7 +149,7 @@ class NeonService {
       method: "POST",
       body: JSON.stringify(product),
     });
-    return mapProduct(row);
+    return (await this.mapProducts([row]))[0];
   }
 
   async deleteProduct(id: string): Promise<void> {
