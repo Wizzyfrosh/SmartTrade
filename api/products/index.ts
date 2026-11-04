@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { requireAuth } from "../../src/lib/require-auth";
 import { withUserTransaction } from "../../src/lib/db";
+import { verifyPrivateImageObject } from "../../src/lib/storage";
 
 function json(res: any, status: number, body: unknown) {
   res.status(status).json(body);
@@ -34,6 +35,11 @@ export default async function handler(req: any, res: any) {
           !Number.isInteger(stockQuantity) || stockQuantity < 0 ||
           !Number.isInteger(lowStockThreshold) || lowStockThreshold < 0) {
         return json(res, 400, { error: "Invalid product fields" });
+      }
+
+      if (body.imageObjectKey !== undefined && body.imageObjectKey !== null &&
+          !(await verifyPrivateImageObject(String(body.imageObjectKey), `users/${userId}/products/`))) {
+        return json(res, 400, { error: "Product image upload is missing, invalid or exceeds 5 MB" });
       }
 
       const product = await withUserTransaction(userId, async (db) => {
