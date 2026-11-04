@@ -41,7 +41,15 @@ export default async function handler(req: any, res: any) {
           "SELECT * FROM public.sales WHERE id = $1 AND user_id = $2",
           [saleId, userId],
         );
-        if (existing.rows[0]) return existing.rows[0];
+        if (existing.rows[0]) {
+          const prior = existing.rows[0];
+          if (prior.product_id !== productId ||
+              Number(prior.quantity) !== quantity ||
+              (unitPriceInput !== null && Number(prior.unit_price) !== unitPriceInput)) {
+            throw new Error("Sale ID was reused with different data");
+          }
+          return prior;
+        }
 
         const productResult = await db.query(
           "SELECT selling_price, cost_price FROM public.products WHERE id = $1 FOR UPDATE",
@@ -72,6 +80,7 @@ export default async function handler(req: any, res: any) {
   } catch (error: any) {
     const message = String(error?.message ?? "");
     if (message.includes("Insufficient stock")) return json(res, 409, { error: "Insufficient stock" });
+    if (message.includes("Sale ID was reused")) return json(res, 409, { error: "Sale ID conflict: this ID was already used for a different sale" });
     if (message.includes("Quantity must")) return json(res, 400, { error: "Quantity must be greater than zero" });
     console.error("Sales API error", error);
     return json(res, 500, { error: "Unable to process sale" });
