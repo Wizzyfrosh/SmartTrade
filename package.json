@@ -38,8 +38,8 @@
     "react-native-screens": "~4.16.0",
     "react-native-uuid": "^2.0.3",
     "react-native-web": "^0.21.0",
-    "better-auth": "1.7.16",
-    "@better-auth/expo": "1.7.16",
+    "better-auth": "1.7.15",
+    "@better-auth/expo": "1.7.15",
     "expo-network": "~8.0.8",
     "expo-secure-store": "~15.0.8",
     "pg": "^8.16.3"
