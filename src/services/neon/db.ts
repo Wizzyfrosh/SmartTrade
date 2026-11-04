@@ -8,13 +8,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-async function signedImageUrl(key?: string | null): Promise<string | undefined> {
-  if (!key) return undefined;
-  const result = await request<{ url: string }>(`/api/storage/download-url?key=${encodeURIComponent(key)}`);
-  return result.url;
-}
-
-async function mapProduct(row: any): Promise<Product> {
+function mapProduct(row: any, signedUrls: Record<string, string> = {}): Product {
   const key = row.imageObjectKey || row.image_object_key || undefined;
   return {
     id: row.id,
@@ -26,7 +20,7 @@ async function mapProduct(row: any): Promise<Product> {
     stockQuantity: Number(row.stockQuantity ?? row.stock_quantity ?? 0),
     lowStockThreshold: Number(row.lowStockThreshold ?? row.low_stock_threshold ?? 5),
     barcode: row.barcode,
-    imageUrl: row.imageUrl || row.image_url || await signedImageUrl(key),
+    imageUrl: row.imageUrl || row.image_url || (key ? signedUrls[key] : undefined),
     imageObjectKey: key,
     createdAt: typeof row.createdAt === "number" ? row.createdAt : new Date(row.created_at).getTime(),
     updatedAt: typeof row.updatedAt === "number" ? row.updatedAt : new Date(row.updated_at || row.created_at).getTime(),
@@ -56,9 +50,20 @@ class NeonService {
     return request("/api/data/dashboard");
   }
 
+  private async mapProducts(rows: any[]): Promise<Product[]> {
+    const keys = [...new Set(rows.map((row) => row.imageObjectKey || row.image_object_key).filter(Boolean))] as string[];
+    const signedUrls = keys.length
+      ? await request<Record<string, string>>("/api/storage/download-urls", {
+          method: "POST",
+          body: JSON.stringify({ keys }),
+        })
+      : {};
+    return rows.map((row) => mapProduct(row, signedUrls));
+  }
+
   async getLowStockProducts(): Promise<Product[]> {
     const rows = await request<any[]>("/api/data/low-stock");
-    return Promise.all(rows.map(mapProduct));
+    return this.mapProducts(rows);
   }
 
   async getTodaySales(): Promise<Sale[]> {
@@ -73,7 +78,7 @@ class NeonService {
 
   async getAllProducts(): Promise<Product[]> {
     const rows = await request<any[]>("/api/data/products");
-    return Promise.all(rows.map(mapProduct));
+    return this.mapProducts(rows);
   }
 
   async searchProducts(query: string): Promise<Product[]> {
