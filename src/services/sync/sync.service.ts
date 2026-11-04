@@ -59,7 +59,7 @@ export const syncService = {
         throw new Error(body?.error || "Could not synchronize offline changes");
       }
 
-      const byId = new Map<string, { status: string }>(
+      const byId = new Map<string, { status: string; error?: string }>(
         body.results.map((result: any) => [String(result.id), result]),
       );
       for (const item of batch) {
@@ -68,7 +68,7 @@ export const syncService = {
           await dbService.acknowledgeOutboxItem(item);
           synced += 1;
         } else {
-          await dbService.incrementOutboxRetry(item.id);
+          await dbService.recordOutboxFailure(item.id, result?.error || "No successful acknowledgement from server");
           failed += 1;
         }
       }
