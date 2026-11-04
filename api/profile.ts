@@ -1,5 +1,6 @@
 import { requireAuth } from "../src/lib/require-auth";
 import { withUserTransaction } from "../src/lib/db";
+import { verifyPrivateImageObject } from "../src/lib/storage";
 
 function send(res: any, status: number, body: unknown) {
   return res.status(status).json(body);
@@ -46,6 +47,8 @@ export default async function handler(req: any, res: any) {
         return send(res, 400, { error: "Currency code must be a three-letter code" });
       if (avatarObjectKey !== undefined && (avatarObjectKey === null || !avatarObjectKey.startsWith(`users/${userId}/avatar/`) || avatarObjectKey.length > 1024))
         return send(res, 400, { error: "Invalid avatar image key" });
+      if (avatarObjectKey !== undefined && !(await verifyPrivateImageObject(avatarObjectKey, `users/${userId}/avatar/`)))
+        return send(res, 400, { error: "Avatar upload is missing, invalid or exceeds 5 MB" });
 
       const profile = await withUserTransaction(userId, async (db) => {
         const result = await db.query(
