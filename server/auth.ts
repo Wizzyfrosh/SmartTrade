@@ -2,20 +2,22 @@ import { betterAuth } from "better-auth";
 import { expo } from "@better-auth/expo";
 import { Pool } from "pg";
 
-const globalForPg = globalThis as typeof globalThis & { smartTradePool?: Pool };
+const globalForPg = globalThis as typeof globalThis & {
+  smartTradeAuthPool?: Pool;
+};
 
 const pool =
-  globalForPg.smartTradePool ??
+  globalForPg.smartTradeAuthPool ??
   new Pool({
-    connectionString: process.env.DATABASE_URL,
-    max: 5,
+    connectionString: process.env.BETTER_AUTH_DATABASE_URL,
+    max: 3,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
     ssl: { rejectUnauthorized: true },
   });
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPg.smartTradePool = pool;
+  globalForPg.smartTradeAuthPool = pool;
 }
 
 const trustedOrigins = [
@@ -23,9 +25,6 @@ const trustedOrigins = [
   "smarttrade://",
   "http://localhost:8081",
   "http://localhost:19006",
-  ...(process.env.NODE_ENV === "development"
-    ? ["exp://", "exp://**", "exp://192.168.*.*:*/**"]
-    : []),
 ];
 
 const googleConfigured =
