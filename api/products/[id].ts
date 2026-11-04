@@ -11,6 +11,7 @@ const fields: Record<string, string> = {
   lowStockThreshold: "low_stock_threshold",
   barcode: "barcode",
   imageUrl: "image_url",
+  imageObjectKey: "image_object_key",
 };
 
 function json(res: any, status: number, body: unknown) {
