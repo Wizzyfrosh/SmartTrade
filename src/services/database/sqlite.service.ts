@@ -480,7 +480,7 @@ class DatabaseService {
         if (!this.db) throw new Error('Database not initialized');
 
         const result = await this.db.getAllAsync<any>(
-            'SELECT * FROM outbox WHERE next_retry_at IS NULL OR next_retry_at <= ? ORDER BY created_at ASC',
+            'SELECT * FROM outbox WHERE next_retry_at IS NULL OR next_retry_at <= ? ORDER BY created_at ASC, rowid ASC',
             [Date.now()]
         );
 
