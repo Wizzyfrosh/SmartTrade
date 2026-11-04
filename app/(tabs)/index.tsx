@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { StatCard, Card, EmptyState, SyncIndicator, ResponsiveContainer } from '../../src/components';
-import { supabaseService } from '../../src/services/supabase/db';
+import { neonService } from '../../src/services/neon/db';
 import { formatCurrency } from '../../src/utils/currency';
 import { getGreeting } from '../../src/utils/date';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -42,15 +42,15 @@ export default function Dashboard() {
             setLoading(true);
 
             // Load dashboard stats
-            const dashboardStats = await supabaseService.getDashboardStats();
+            const dashboardStats = await neonService.getDashboardStats();
             setStats(dashboardStats);
 
             // Load low stock products
-            const lowStock = await supabaseService.getLowStockProducts();
+            const lowStock = await neonService.getLowStockProducts();
             setLowStockProducts(lowStock);
 
             // Load today's sales
-            const sales = await supabaseService.getTodaySales();
+            const sales = await neonService.getTodaySales();
             setTodaySales(sales);
 
         } catch (error) {
