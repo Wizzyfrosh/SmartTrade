@@ -14,6 +14,7 @@ export interface Product {
   lowStockThreshold: number;
   barcode?: string;
   imageUrl?: string;
+  imageObjectKey?: string;
   createdAt: number;
   updatedAt: number;
   synced: boolean;
