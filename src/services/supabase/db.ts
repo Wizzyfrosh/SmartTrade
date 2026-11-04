@@ -129,9 +129,9 @@ class SmartTradeApiService {
     return mapToSale(row);
   }
 
-  async saveProductImage(uri: string, productId: string): Promise<string> {
+  async saveProductImage(uri: string, contentType: string, productId: string): Promise<string> {
     const { uploadPrivateImage } = await import("../profile/upload");
-    return uploadPrivateImage(uri, "product", productId);
+    return uploadPrivateImage(uri, contentType, "product", productId);
   }
 
   async updateProduct(product: Product): Promise<void> {
