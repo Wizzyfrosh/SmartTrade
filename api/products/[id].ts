@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { requireAuth } from "../../src/lib/require-auth";
 import { withUserTransaction } from "../../src/lib/db";
 
@@ -7,7 +8,6 @@ const fields: Record<string, string> = {
   category: "category",
   costPrice: "cost_price",
   sellingPrice: "selling_price",
-  stockQuantity: "stock_quantity",
   lowStockThreshold: "low_stock_threshold",
   barcode: "barcode",
   imageUrl: "image_url",
@@ -39,13 +39,21 @@ export default async function handler(req: any, res: any) {
     if (req.method === "PATCH" || req.method === "PUT") {
       const body = req.body ?? {};
       const entries = Object.entries(fields).filter(([key]) => body[key] !== undefined);
-      if (!entries.length) return json(res, 400, { error: "No valid product fields supplied" });
+      const hasStockUpdate = body.stockQuantity !== undefined;
+      const stockQuantity = hasStockUpdate ? Number(body.stockQuantity) : undefined;
+
+      if (!entries.length && !hasStockUpdate) {
+        return json(res, 400, { error: "No valid product fields supplied" });
+      }
+      if (hasStockUpdate && (!Number.isInteger(stockQuantity) || stockQuantity! < 0)) {
+        return json(res, 400, { error: "Invalid stockQuantity" });
+      }
 
       for (const [key] of entries) {
         const value = body[key];
         if (["costPrice", "sellingPrice"].includes(key) && (!Number.isFinite(Number(value)) || Number(value) < 0))
           return json(res, 400, { error: `Invalid ${key}` });
-        if (["stockQuantity", "lowStockThreshold"].includes(key) && (!Number.isInteger(Number(value)) || Number(value) < 0))
+        if (key === "lowStockThreshold" && (!Number.isInteger(Number(value)) || Number(value) < 0))
           return json(res, 400, { error: `Invalid ${key}` });
         if (key === "name" && (typeof value !== "string" || !value.trim()))
           return json(res, 400, { error: "Product name cannot be empty" });
@@ -54,14 +62,40 @@ export default async function handler(req: any, res: any) {
       }
 
       const product = await withUserTransaction(userId, async (db) => {
-        const setSql = entries.map(([key], i) => `${fields[key]} = $${i + 1}`).join(", ");
+        let stockDelta = 0;
+        if (hasStockUpdate) {
+          const current = await db.query(
+            "SELECT stock_quantity FROM public.products WHERE id = $1 FOR UPDATE",
+            [id],
+          );
+          if (!current.rows[0]) return null;
+          stockDelta = stockQuantity! - Number(current.rows[0].stock_quantity);
+        }
+
         const values = entries.map(([key]) => body[key]);
+        const assignments = entries.map(([key], i) => `${fields[key]} = $${i + 1}`);
+        if (hasStockUpdate) {
+          values.push(stockQuantity);
+          assignments.push(`stock_quantity = $${values.length}`);
+        }
+
         const result = await db.query(
-          `UPDATE public.products SET ${setSql}, updated_at = NOW()
+          `UPDATE public.products SET ${assignments.join(", ")}, updated_at = NOW()
            WHERE id = $${values.length + 1} RETURNING *`,
           [...values, id],
         );
-        return result.rows[0] ?? null;
+        const updated = result.rows[0] ?? null;
+        if (!updated) return null;
+
+        if (stockDelta !== 0) {
+          await db.query(
+            `INSERT INTO public.inventory_adjustments
+              (id, user_id, product_id, quantity_delta, reason, created_at)
+             VALUES ($1, $2, $3, $4, 'manual_adjustment', NOW())`,
+            [randomUUID(), userId, id, stockDelta],
+          );
+        }
+        return updated;
       });
       if (!product) return json(res, 404, { error: "Product not found" });
       return json(res, 200, product);
