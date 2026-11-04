@@ -24,6 +24,7 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === "POST") {
       const body = req.body ?? {};
+      const saleId = typeof body.id === "string" && body.id.length <= 128 ? body.id : randomUUID();
       const productId = typeof body.productId === "string" ? body.productId : "";
       const quantity = Number(body.quantity);
       const unitPriceInput = body.unitPrice === undefined ? null : Number(body.unitPrice);
@@ -33,6 +34,14 @@ export default async function handler(req: any, res: any) {
       }
 
       const sale = await withUserTransaction(userId, async (db) => {
+        // Idempotency: a retried offline sale must return the original record,
+        // never decrement stock or create a second sale.
+        const existing = await db.query(
+          "SELECT * FROM public.sales WHERE id = $1 AND user_id = $2",
+          [saleId, userId],
+        );
+        if (existing.rows[0]) return existing.rows[0];
+
         const productResult = await db.query(
           "SELECT selling_price, cost_price FROM public.products WHERE id = $1 FOR UPDATE",
           [productId],
@@ -48,7 +57,7 @@ export default async function handler(req: any, res: any) {
           `SELECT * FROM public.create_sale_for_user(
             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10
           )`,
-          [userId, randomUUID(), productId, quantity, unitPrice, costPrice,
+          [userId, saleId, productId, quantity, unitPrice, costPrice,
             totalRevenue, totalCost, totalRevenue - totalCost, Number(body.saleDate) || Date.now()],
         );
         return result.rows[0] ?? null;
