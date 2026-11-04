@@ -164,10 +164,18 @@ export default async function handler(req: any, res: any) {
 
         await db.query("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [saleId]);
         const existing = await db.query(
-          "SELECT id FROM public.sales WHERE id = $1 AND user_id = $2",
+          "SELECT product_id, quantity, unit_price FROM public.sales WHERE id = $1 AND user_id = $2",
           [saleId, session.user.id],
         );
-        if (existing.rows[0]) return;
+        if (existing.rows[0]) {
+          const prior = existing.rows[0];
+          if (prior.product_id !== productId ||
+              Number(prior.quantity) !== quantity ||
+              Number(prior.unit_price) !== unitPrice) {
+            throw new Error("Sale ID was reused with different data");
+          }
+          return;
+        }
 
         // Never trust the offline payload's cost price. Lock the owned product
         // and derive cost from the server before calculating profit.
@@ -195,6 +203,7 @@ export default async function handler(req: any, res: any) {
         error: message.includes("Insufficient stock") ? "Insufficient stock on server" :
           message.includes("Stock adjustment ID belongs to another account") ? "Stock adjustment belongs to another account" :
           message.includes("Product not found") ? "Product no longer exists on server" :
+          message.includes("Sale ID was reused") ? "Sale ID conflict: this ID was already used for a different sale" :
           message.includes("duplicate key") ? "A product with this SKU already exists" :
           "Could not sync this item",
       });
