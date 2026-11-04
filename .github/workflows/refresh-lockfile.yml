@@ -37,5 +37,6 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add package-lock.json
             git commit -m "chore: refresh package lock for Better Auth"
+            git pull --rebase origin neon-better-auth-api
             git push origin HEAD:neon-better-auth-api
           fi
