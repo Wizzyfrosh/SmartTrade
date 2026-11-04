@@ -65,19 +65,19 @@ export default async function handler(req: any, res: any) {
           await db.query(
             `INSERT INTO public.products
               (id,user_id,name,sku,category,cost_price,selling_price,stock_quantity,
-               low_stock_threshold,barcode,image_url,created_at,updated_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+               low_stock_threshold,barcode,image_url,image_object_key,created_at,updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
                COALESCE(to_timestamp($12 / 1000.0),NOW()),
                COALESCE(to_timestamp($13 / 1000.0),NOW()))
              ON CONFLICT (id) DO UPDATE SET
                name=EXCLUDED.name,sku=EXCLUDED.sku,category=EXCLUDED.category,
                cost_price=EXCLUDED.cost_price,selling_price=EXCLUDED.selling_price,
                low_stock_threshold=EXCLUDED.low_stock_threshold,
-               barcode=EXCLUDED.barcode,image_url=EXCLUDED.image_url,updated_at=NOW()
+               barcode=EXCLUDED.barcode,image_url=EXCLUDED.image_url,image_object_key=EXCLUDED.image_object_key,updated_at=NOW()
              WHERE public.products.user_id = EXCLUDED.user_id`,
             [productId, session.user.id, name, payload.sku || null, payload.category || null,
               costPrice, sellingPrice, stockQuantity, threshold, payload.barcode || null,
-              payload.imageUrl || null, number(payload.createdAt, Date.now()),
+              payload.imageUrl || null, payload.imageObjectKey || null, number(payload.createdAt, Date.now()),
               number(payload.updatedAt, Date.now())],
           );
           return;
