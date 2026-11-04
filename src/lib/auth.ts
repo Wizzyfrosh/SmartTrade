@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { expo } from "@better-auth/expo";
 import { Pool } from "pg";
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = process.env.BETTER_AUTH_DATABASE_URL || process.env.DATABASE_URL;
 const authSecret = process.env.BETTER_AUTH_SECRET;
 const authUrl = process.env.BETTER_AUTH_URL;
 
@@ -16,7 +16,6 @@ const pool = globalForPool.smartTradePool ?? new Pool({
   max: 5,
   idleTimeoutMillis: 10_000,
   connectionTimeoutMillis: 10_000,
-  ssl: { rejectUnauthorized: false },
 });
 if (process.env.NODE_ENV !== "production") globalForPool.smartTradePool = pool;
 
