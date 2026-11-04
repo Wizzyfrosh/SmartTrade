@@ -49,6 +49,7 @@ export const syncService = {
       const response = await apiFetch("/api/sync", {
         method: "POST",
         body: JSON.stringify({
+          userId,
           items: batch.map((item: OutboxItem) => ({
             id: item.id,
             entityType: item.entityType,
