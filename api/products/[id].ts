@@ -49,6 +49,8 @@ export default async function handler(req: any, res: any) {
           return json(res, 400, { error: `Invalid ${key}` });
         if (key === "name" && (typeof value !== "string" || !value.trim()))
           return json(res, 400, { error: "Product name cannot be empty" });
+        if (key === "imageObjectKey" && (typeof value !== "string" || !value.startsWith(`users/${userId}/products/${id}/`) || value.length > 1024))
+          return json(res, 400, { error: "Invalid product image key" });
       }
 
       const product = await withUserTransaction(userId, async (db) => {
