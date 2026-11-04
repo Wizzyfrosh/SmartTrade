@@ -9,14 +9,29 @@ import type { Product, Sale, OutboxItem } from '../../types';
 
 class DatabaseService {
     private db: SQLite.SQLiteDatabase | null = null;
+    private currentUserId: string | null = null;
 
     /**
      * Initialize database and create tables
      */
-    async init(): Promise<void> {
-        if (this.db) return;
+    async init(userId: string): Promise<void> {
+        if (!userId) throw new Error('A signed-in user is required to open local SmartTrade data');
+        if (this.db && this.currentUserId === userId) return;
+        if (this.db && this.currentUserId !== userId) {
+            await this.db.closeAsync();
+            this.db = null;
+            this.currentUserId = null;
+        }
         try {
-            this.db = await SQLite.openDatabaseAsync(DB_NAME);
+            const suffix = userId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 32);
+            let hash = 2166136261;
+            for (let index = 0; index < userId.length; index += 1) {
+                hash ^= userId.charCodeAt(index);
+                hash = Math.imul(hash, 16777619);
+            }
+            const scopedDatabaseName = `${DB_NAME.replace(/\.db$/, '')}-${suffix}-${(hash >>> 0).toString(16)}.db`;
+            this.db = await SQLite.openDatabaseAsync(scopedDatabaseName);
+            this.currentUserId = userId;
             await this.createTables();
             console.log('✅ Database initialized successfully');
         } catch (error) {
@@ -440,6 +455,12 @@ class DatabaseService {
                 await this.db!.runAsync('UPDATE products SET synced = 1 WHERE id = ?', [item.entityId]);
             } else if (item.entityType === 'sale') {
                 await this.db!.runAsync('UPDATE sales SET synced = 1 WHERE id = ?', [item.entityId]);
+                const payload = JSON.parse(item.payload) as Sale;
+                await this.db!.runAsync(
+                    `UPDATE products SET synced = 1 WHERE id = ?
+                     AND NOT EXISTS (SELECT 1 FROM outbox WHERE entity_type = 'product' AND entity_id = ?)`,
+                    [payload.productId, payload.productId]
+                );
             }
         });
     }
