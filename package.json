@@ -49,5 +49,8 @@
     "typescript": "~5.9.2",
     "@types/pg": "^8.15.5"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  }
 }
