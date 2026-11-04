@@ -26,12 +26,12 @@ function InitialLayout() {
     const router = useRouter();
 
     useEffect(() => {
-        if (loading || !session?.user?.id) return;
+        if (loading || !session?.userId) return;
         let disposed = false;
 
         const syncWhenReady = async () => {
             try {
-                await dbService.init(session.user.id);
+                await dbService.init(session.userId);
                 if (!disposed) await syncService.syncNow(session.user.id);
             } catch (error) {
                 console.warn('Background synchronization deferred:', error);
@@ -53,7 +53,7 @@ function InitialLayout() {
             appStateSubscription.remove();
             networkSubscription.remove();
         };
-    }, [loading, session?.user?.id]);
+    }, [loading, session?.userId]);
 
     useEffect(() => {
         if (loading) return;
