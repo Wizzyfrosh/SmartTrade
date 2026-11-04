@@ -66,7 +66,7 @@ export default async function handler(req: any, res: any) {
             throw new Error("Invalid product data");
           }
 
-          await db.query(
+          const upserted = await db.query(
             `INSERT INTO public.products
               (id,user_id,name,sku,category,cost_price,selling_price,stock_quantity,
                low_stock_threshold,barcode,image_url,image_object_key,created_at,updated_at)
@@ -78,12 +78,16 @@ export default async function handler(req: any, res: any) {
                cost_price=EXCLUDED.cost_price,selling_price=EXCLUDED.selling_price,
                low_stock_threshold=EXCLUDED.low_stock_threshold,
                barcode=EXCLUDED.barcode,image_url=EXCLUDED.image_url,image_object_key=EXCLUDED.image_object_key,updated_at=NOW()
-             WHERE public.products.user_id = EXCLUDED.user_id`,
+             WHERE public.products.user_id = EXCLUDED.user_id
+             RETURNING id`,
             [productId, session.user.id, name, payload.sku || null, payload.category || null,
               costPrice, sellingPrice, stockQuantity, threshold, payload.barcode || null,
               payload.imageUrl || null, payload.imageObjectKey || null, number(payload.createdAt, Date.now()),
               number(payload.updatedAt, Date.now())],
           );
+          if (!upserted.rows[0]) {
+            throw new Error("Product ID belongs to another account");
+          }
           return;
         }
 
