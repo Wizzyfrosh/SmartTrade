@@ -33,7 +33,7 @@ export default async function handler(req: any, res: any) {
     const entityType = item?.entityType;
     const operation = item?.operation;
     const payload = item?.payload && typeof item.payload === "object" ? item.payload : null;
-    if (!id || !payload || !["product", "sale"].includes(entityType) ||
+    if (!id || !payload || !["product", "sale", "stock_adjustment"].includes(entityType) ||
         !["INSERT", "UPDATE", "DELETE"].includes(operation)) {
       results.push({ id, status: "failed", error: "Invalid outbox item" });
       continue;
@@ -41,6 +41,54 @@ export default async function handler(req: any, res: any) {
 
     try {
       await withUserTransaction(session.user.id, async (db) => {
+        if (entityType === "stock_adjustment") {
+          if (operation !== "INSERT") throw new Error("Stock adjustments are immutable events");
+          const adjustmentId = id;
+          const productId = typeof payload.productId === "string" ? payload.productId : "";
+          const quantityDelta = number(payload.quantityDelta, NaN);
+          const reason = typeof payload.reason === "string" ? payload.reason : "manual_adjustment";
+          const allowedReasons = ["manual_adjustment", "correction", "damage", "return", "opening_balance"];
+          if (!productId || productId.length > 128 ||
+              !Number.isInteger(quantityDelta) || quantityDelta === 0 ||
+              Math.abs(quantityDelta) > 1_000_000 || !allowedReasons.includes(reason)) {
+            throw new Error("Invalid stock adjustment");
+          }
+
+          const inserted = await db.query(
+            `INSERT INTO public.inventory_adjustments
+              (id, user_id, product_id, quantity_delta, reason, created_at)
+             VALUES ($1,$2,$3,$4,$5,COALESCE(to_timestamp($6 / 1000.0),NOW()))
+             ON CONFLICT (id) DO NOTHING
+             RETURNING id`,
+            [adjustmentId, session.user.id, productId, quantityDelta, reason, number(payload.createdAt, Date.now())],
+          );
+          if (!inserted.rows[0]) {
+            const existing = await db.query(
+              "SELECT user_id FROM public.inventory_adjustments WHERE id = $1",
+              [adjustmentId],
+            );
+            if (existing.rows[0]?.user_id === session.user.id) return;
+            throw new Error("Stock adjustment ID belongs to another account");
+          }
+
+          const updated = await db.query(
+            `UPDATE public.products
+             SET stock_quantity = stock_quantity + $1, updated_at = NOW()
+             WHERE id = $2 AND user_id = $3 AND stock_quantity + $1 >= 0
+             RETURNING id`,
+            [quantityDelta, productId, session.user.id],
+          );
+          if (!updated.rows[0]) {
+            const owned = await db.query(
+              "SELECT id FROM public.products WHERE id = $1 AND user_id = $2",
+              [productId, session.user.id],
+            );
+            if (!owned.rows[0]) throw new Error("Product not found");
+            throw new Error("Insufficient stock");
+          }
+          return;
+        }
+
         if (entityType === "product") {
           const productId = typeof item.entityId === "string" ? item.entityId : payload.id;
           if (typeof productId !== "string" || !productId || productId.length > 128) {
@@ -137,6 +185,7 @@ export default async function handler(req: any, res: any) {
         id,
         status: "failed",
         error: message.includes("Insufficient stock") ? "Insufficient stock on server" :
+          message.includes("Stock adjustment ID belongs to another account") ? "Stock adjustment belongs to another account" :
           message.includes("Product not found") ? "Product no longer exists on server" :
           message.includes("duplicate key") ? "A product with this SKU already exists" :
           "Could not sync this item",
