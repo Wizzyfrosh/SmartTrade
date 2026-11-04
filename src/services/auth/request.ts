@@ -1,13 +1,18 @@
+import { Platform } from "react-native";
 import { authClient } from "./client";
 
 export async function authenticatedFetch(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const cookie = await authClient.getCookie();
   const headers = new Headers(init.headers);
+  const isNative = Platform.OS !== "web";
 
-  if (cookie) headers.set("Cookie", cookie);
+  if (isNative) {
+    const cookie = await authClient.getCookie();
+    if (cookie) headers.set("Cookie", cookie);
+  }
+
   if (!headers.has("Content-Type") && init.body) {
     headers.set("Content-Type", "application/json");
   }
@@ -17,7 +22,7 @@ export async function authenticatedFetch(
     {
       ...init,
       headers,
-      credentials: "omit",
+      credentials: isNative ? "omit" : "include",
     },
   );
 }
