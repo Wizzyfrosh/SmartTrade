@@ -17,11 +17,16 @@ import { useSettings } from '../../src/contexts/SettingsContext';
 import * as ImagePicker from 'expo-image-picker';
 import { profileService } from '../../src/services/profile/profile';
 import { uploadPrivateImage } from '../../src/services/profile/upload';
+import { dbService } from '../../src/services/database/sqlite.service';
+import { syncService } from '../../src/services/sync/sync.service';
 
 export default function Settings() {
     const { signOut, user } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [pendingSync, setPendingSync] = useState(0);
+    const [syncMessage, setSyncMessage] = useState('');
 
     // Use Context
     const { currency, lowStockThreshold, notificationsEnabled, updateSettings, theme, colors } = useSettings();
@@ -55,6 +60,39 @@ export default function Settings() {
         }).catch((error) => console.warn('Could not load business profile:', error));
         return () => { active = false; };
     }, []);
+
+    const refreshSyncStatus = async () => {
+        if (!user?.id) return;
+        try {
+            await dbService.init(user.id);
+            setPendingSync(await dbService.getPendingOutboxCount());
+        } catch (error) {
+            console.warn('Could not read pending sync count:', error);
+        }
+    };
+
+    useEffect(() => {
+        void refreshSyncStatus();
+    }, [user?.id]);
+
+    const handleSyncNow = async () => {
+        if (!user?.id || syncing) return;
+        try {
+            setSyncing(true);
+            const result = await syncService.syncNow(user.id);
+            setPendingSync(result.pending);
+            setSyncMessage(result.offline
+                ? 'No internet connection. Your changes remain saved on this device.'
+                : result.failed
+                    ? `${result.synced} synced; ${result.failed} need attention.`
+                    : `${result.synced} changes synchronized.`);
+        } catch (error: any) {
+            setSyncMessage(error?.message || 'Synchronization failed. Your queued changes are safe.');
+        } finally {
+            setSyncing(false);
+            await refreshSyncStatus();
+        }
+    };
 
     const handleThresholdChange = (text: string) => {
         setLocalThreshold(text);
@@ -182,6 +220,26 @@ export default function Settings() {
                                 <Ionicons name="pencil" size={20} color={colors.primary} />
                             </TouchableOpacity>
                         </View>
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Data Synchronization</Text>
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.settingLabel}>Pending changes</Text>
+                                <Text style={styles.settingDesc}>
+                                    {pendingSync === 0 ? 'All queued changes are synchronized' : `${pendingSync} change(s) waiting to sync`}
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={handleSyncNow}
+                                disabled={syncing}
+                                style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, backgroundColor: colors.primary, opacity: syncing ? 0.6 : 1 }}
+                            >
+                                <Text style={{ color: colors.textWhite, fontWeight: '600' }}>{syncing ? 'Syncing…' : 'Sync now'}</Text>
+                            </TouchableOpacity>
+                        </View>
+                        {!!syncMessage && <Text style={styles.settingDesc}>{syncMessage}</Text>}
                     </View>
 
                     {/* General Settings */}
