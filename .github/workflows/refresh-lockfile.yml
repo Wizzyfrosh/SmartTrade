@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: smarttrade-lockfile-{{ github.ref }}
@@ -36,16 +36,6 @@ jobs:
           cache: npm
       - name: Regenerate package lock
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - name: Commit lockfile when changed
-        run: |
-          if ! git diff --quiet -- package-lock.json; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package-lock.json
-            git commit -m "chore: refresh package lock for Better Auth"
-            git pull --rebase origin neon-better-auth-api
-            git push origin HEAD:neon-better-auth-api
-          fi
       - name: Install locked dependencies
         run: npm ci
       - name: TypeScript validation
