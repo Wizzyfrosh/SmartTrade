@@ -79,6 +79,7 @@ export default function Settings() {
         if (!user?.id || syncing) return;
         try {
             setSyncing(true);
+            await dbService.retryDeferredOutboxItems();
             const result = await syncService.syncNow(user.id);
             setPendingSync(result.pending);
             setSyncMessage(result.offline
