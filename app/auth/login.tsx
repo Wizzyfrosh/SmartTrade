@@ -15,7 +15,7 @@ import {
 import { useRouter, Link } from 'expo-router';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { Input, Button } from '../../src/components';
-import { supabase } from '../../src/services/supabase/client';
+import { authClient } from '../../src/services/auth/client';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleAuthButton } from '../../src/components/GoogleAuthButton';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -132,54 +132,36 @@ export default function Login() {
     });
 
     const handleLogin = async () => {
-        if (!email || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
+        if (!email.trim() || !password) {
+            Alert.alert('Error', 'Please enter your email and password.');
             return;
         }
 
         try {
             setLoading(true);
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
+            const { error } = await authClient.signIn.email({
+                email: email.trim().toLowerCase(),
                 password,
             });
-
-            if (error) throw error;
+            if (error) throw new Error(error.message);
+            router.replace('/(tabs)');
         } catch (error: any) {
-            let message = error.message;
-            if (message.includes('Invalid login credentials')) {
-                message = 'Invalid email or password. Please check your credentials.';
-            }
-            Alert.alert('Login Failed', message);
+            Alert.alert('Login Failed', error?.message || 'Unable to sign in. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
     const handleForgotPassword = async () => {
-        if (!email) {
-            Alert.alert('Email Required', 'Please enter your email address first, then tap "Forgot password?"');
+        if (!email.trim()) {
+            Alert.alert('Email Required', 'Enter your email address first.');
             return;
         }
 
-        try {
-            setLoading(true);
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: 'smarttrade://reset-password',
-            });
-
-            if (error) throw error;
-
-            Alert.alert(
-                'Password Reset Email Sent',
-                'Check your inbox for the password reset link. If you don\'t see it, check your spam folder.',
-                [{ text: 'OK' }]
-            );
-        } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to send reset email. Please try again.');
-        } finally {
-            setLoading(false);
-        }
+        Alert.alert(
+            'Password reset unavailable',
+            'Password reset email delivery has not been configured on the new authentication server yet. Your account is safe; please contact support until email delivery is enabled.'
+        );
     };
 
     return (
