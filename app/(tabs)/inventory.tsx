@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { StatCard, Card, EmptyState, Button, ResponsiveContainer } from '../../src/components';
-import { supabaseService } from '../../src/services/supabase/db';
+import { neonService } from '../../src/services/neon/db';
 import { formatCurrency } from '../../src/utils/currency';
 import { useSettings } from '../../src/contexts/SettingsContext';
 import type { Product } from '../../src/types';
@@ -43,10 +43,10 @@ export default function Inventory() {
 
     const loadInventory = async () => {
         try {
-            const allProducts = await supabaseService.getAllProducts();
+            const allProducts = await neonService.getAllProducts();
             setProducts(allProducts);
 
-            const dashboardStats = await supabaseService.getDashboardStats();
+            const dashboardStats = await neonService.getDashboardStats();
             setStats(dashboardStats);
         } catch (error) {
             console.error('Failed to load inventory:', error);
@@ -56,10 +56,10 @@ export default function Inventory() {
     const handleSearch = async (query: string) => {
         setSearchQuery(query);
         if (query.trim()) {
-            const results = await supabaseService.searchProducts(query);
+            const results = await neonService.searchProducts(query);
             setProducts(results);
         } else {
-            const allProducts = await supabaseService.getAllProducts();
+            const allProducts = await neonService.getAllProducts();
             setProducts(allProducts);
         }
     };
