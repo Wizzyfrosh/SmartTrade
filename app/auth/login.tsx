@@ -240,15 +240,18 @@ export default function Login() {
                             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
                         ]}
                     >
-                        <GoogleAuthButton />
-
-                        <View style={styles.dividerContainer}>
+                        {process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === 'true' && (
+                            <>
+                                <GoogleAuthButton />
+                                <View style={styles.dividerContainer}>
                             <View style={styles.dividerLine} />
                             <View style={styles.dividerBadge}>
                                 <Text style={styles.dividerText}>OR</Text>
                             </View>
                             <View style={styles.dividerLine} />
-                        </View>
+                                </View>
+                            </>
+                        )}
 
                         <View style={styles.inputsContainer}>
                             <Input
