@@ -1,6 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { auth } from "../../server/auth";
 import { withUserTransaction } from "../../server/db";
 
 type Request = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
@@ -65,6 +64,7 @@ export default async function handler(req: Request, res: Response) {
       else if (Array.isArray(value)) headers.set(key, value.join(", "));
     }
 
+    const { auth } = await import("../../server/auth");
     const session = await auth.api.getSession({ headers });
     if (!session?.user?.id) {
       res.status(401).json({ error: "Authentication required" });
