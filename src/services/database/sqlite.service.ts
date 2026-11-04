@@ -14,6 +14,7 @@ class DatabaseService {
      * Initialize database and create tables
      */
     async init(): Promise<void> {
+        if (this.db) return;
         try {
             this.db = await SQLite.openDatabaseAsync(DB_NAME);
             await this.createTables();
@@ -152,6 +153,35 @@ class DatabaseService {
         );
 
         return result.map(this.mapRowToProduct);
+    }
+
+    /**
+     * Refresh the local read cache from the authenticated server.
+     * Never overwrite unsynced local edits.
+     */
+    async cacheProducts(products: Product[]): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+        await this.db.withTransactionAsync(async () => {
+            for (const product of products) {
+                await this.db!.runAsync(
+                    `INSERT INTO products
+                     (id,name,sku,category,cost_price,selling_price,stock_quantity,low_stock_threshold,
+                      barcode,image_url,created_at,updated_at,synced)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)
+                     ON CONFLICT(id) DO UPDATE SET
+                       name=excluded.name,sku=excluded.sku,category=excluded.category,
+                       cost_price=excluded.cost_price,selling_price=excluded.selling_price,
+                       stock_quantity=excluded.stock_quantity,low_stock_threshold=excluded.low_stock_threshold,
+                       barcode=excluded.barcode,image_url=excluded.image_url,
+                       updated_at=excluded.updated_at,synced=1
+                     WHERE products.synced=1`,
+                    [product.id, product.name, product.sku || null, product.category || null,
+                     product.costPrice, product.sellingPrice, product.stockQuantity,
+                     product.lowStockThreshold, product.barcode || null, product.imageUrl || null,
+                     product.createdAt, product.updatedAt]
+                );
+            }
+        });
     }
 
     /**
