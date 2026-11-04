@@ -94,14 +94,14 @@ class NeonService {
     return mapSale(row);
   }
 
-  async uploadProductImage(uri: string): Promise<string> {
+  async uploadPrivateImage(uri: string, purpose: "product" | "avatar" = "product"): Promise<string> {
     const fileResponse = await fetch(uri);
     if (!fileResponse.ok) throw new Error("Could not read selected image");
     const blob = await fileResponse.blob();
     const contentType = blob.type || "image/jpeg";
     const upload = await request<{ uploadUrl: string; key: string }>("/api/storage/upload-url", {
       method: "POST",
-      body: JSON.stringify({ purpose: "product", contentType, size: blob.size }),
+      body: JSON.stringify({ purpose, contentType, size: blob.size }),
     });
     const bytes = await blob.arrayBuffer();
     const uploaded = await fetch(upload.uploadUrl, {
@@ -111,6 +111,14 @@ class NeonService {
     });
     if (!uploaded.ok) throw new Error("Image upload failed");
     return upload.key;
+  }
+
+  async uploadProductImage(uri: string): Promise<string> {
+    return this.uploadPrivateImage(uri, "product");
+  }
+
+  async getPrivateImageUrl(key: string): Promise<string> {
+    return signedImageUrl(key) || "";
   }
 
   async updateProduct(product: Product): Promise<void> {
@@ -125,7 +133,7 @@ class NeonService {
         stockQuantity: product.stockQuantity,
         lowStockThreshold: product.lowStockThreshold,
         barcode: product.barcode,
-        imageUrl: product.imageObjectKey || (product.imageUrl?.startsWith("users/") ? product.imageUrl : undefined),
+        imageObjectKey: product.imageObjectKey || (product.imageUrl?.startsWith("users/") ? product.imageUrl : undefined),
       }),
     });
   }
