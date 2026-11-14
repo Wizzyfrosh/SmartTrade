@@ -60,12 +60,14 @@ function InitialLayout() {
 
         const inAuthGroup = segments[0] === 'auth';
         const isPrivacyPolicy = segments[0] === 'privacy-policy';
+        const isPasswordRecoveryRoute =
+            inAuthGroup && (segments[1] === 'forgot-password' || segments[1] === 'reset-password');
 
         if (!session && !inAuthGroup && !isPrivacyPolicy) {
             // Redirect to the sign-in page.
             router.replace('/auth/login');
-        } else if (session && inAuthGroup) {
-            // Redirect away from the sign-in page.
+        } else if (session && inAuthGroup && !isPasswordRecoveryRoute) {
+            // Keep password recovery accessible even when an older session exists.
             router.replace('/(tabs)');
         }
     }, [session, loading, segments]);
