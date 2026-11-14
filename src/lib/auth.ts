@@ -2,20 +2,15 @@ import { betterAuth } from "better-auth";
 import { expo } from "@better-auth/expo";
 import { Pool } from "pg";
 
-const isPreview = process.env.VERCEL_ENV === "preview";
-const databaseUrl = isPreview
-  ? process.env.SMARTTRADE_PREVIEW_AUTH_DATABASE_URL
-  : process.env.BETTER_AUTH_DATABASE_URL;
-const authSecret = isPreview
-  ? process.env.SMARTTRADE_PREVIEW_AUTH_SECRET
-  : process.env.BETTER_AUTH_SECRET;
-const authUrl = isPreview
-  ? process.env.SMARTTRADE_PREVIEW_AUTH_URL
-  : process.env.BETTER_AUTH_URL;
+// Vercel scopes these values by deployment environment. Use the same variable
+// names in Preview and Production; Vercel supplies the environment-specific value.
+const databaseUrl = process.env.BETTER_AUTH_DATABASE_URL;
+const authSecret = process.env.BETTER_AUTH_SECRET;
+const authUrl = process.env.BETTER_AUTH_URL;
 
-if (!databaseUrl) throw new Error(isPreview ? "SMARTTRADE_PREVIEW_AUTH_DATABASE_URL is required" : "BETTER_AUTH_DATABASE_URL is required");
-if (!authSecret) throw new Error(isPreview ? "SMARTTRADE_PREVIEW_AUTH_SECRET is required" : "BETTER_AUTH_SECRET is required");
-if (!authUrl) throw new Error(isPreview ? "SMARTTRADE_PREVIEW_AUTH_URL is required" : "BETTER_AUTH_URL is required");
+if (!databaseUrl) throw new Error("BETTER_AUTH_DATABASE_URL is required");
+if (!authSecret) throw new Error("BETTER_AUTH_SECRET is required");
+if (!authUrl) throw new Error("BETTER_AUTH_URL is required");
 
 const globalForPool = globalThis as typeof globalThis & { smartTradePool?: Pool };
 const pool = globalForPool.smartTradePool ?? new Pool({
