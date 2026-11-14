@@ -3,7 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    Alert,
     TouchableOpacity,
     Image,
     Animated,
@@ -28,6 +27,7 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [formError, setFormError] = useState('');
 
     // Animation values
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -133,11 +133,12 @@ export default function Login() {
 
     const handleLogin = async () => {
         if (!email.trim() || !password) {
-            Alert.alert('Error', 'Please enter your email and password.');
+            setFormError('Enter your email address and password to continue.');
             return;
         }
 
         try {
+            setFormError('');
             setLoading(true);
             const { error } = await authClient.signIn.email({
                 email: email.trim().toLowerCase(),
@@ -146,19 +147,10 @@ export default function Login() {
             if (error) throw new Error(error.message);
             router.replace('/(tabs)');
         } catch (error: any) {
-            Alert.alert('Login Failed', error?.message || 'Unable to sign in. Please try again.');
+            setFormError(error?.message || 'We could not sign you in. Check your details and try again.');
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleForgotPassword = () => {
-        const normalizedEmail = email.trim().toLowerCase();
-        router.push(
-            normalizedEmail
-                ? { pathname: '/auth/forgot-password', params: { email: normalizedEmail } }
-                : '/auth/forgot-password'
-        );
     };
 
     return (
@@ -276,9 +268,19 @@ export default function Login() {
                                 onRightIconPress={() => setShowPassword(!showPassword)}
                             />
 
-                            <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
-                                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-                            </TouchableOpacity>
+                            <Link
+                                href={{
+                                    pathname: '/auth/forgot-password',
+                                    params: email.trim() ? { email: email.trim().toLowerCase() } : {},
+                                }}
+                                asChild
+                            >
+                                <TouchableOpacity style={styles.forgotPassword} accessibilityRole="link">
+                                    <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                                </TouchableOpacity>
+                            </Link>
+
+                            {formError ? <Text accessibilityRole="alert" style={styles.formError}>{formError}</Text> : null}
 
                             <Button
                                 title={loading ? "Signing in..." : "Sign In"}
@@ -429,6 +431,16 @@ const styles = StyleSheet.create({
     },
     inputsContainer: {
         gap: Spacing.md,
+    },
+    formError: {
+        color: '#B42318',
+        backgroundColor: '#FEF3F2',
+        borderColor: '#FECDCA',
+        borderWidth: 1,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.md,
+        fontSize: Typography.sm,
+        lineHeight: 20,
     },
     forgotPassword: {
         alignSelf: 'flex-end',
