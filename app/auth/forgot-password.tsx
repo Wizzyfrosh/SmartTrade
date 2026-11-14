@@ -1,34 +1,34 @@
 import React, { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { Link, useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Link, useLocalSearchParams } from "expo-router";
 import { Colors, Spacing, Typography, BorderRadius } from "../../src/constants/theme";
 import { Input, Button } from "../../src/components";
 import { authClient, AUTH_BASE_URL } from "../../src/services/auth/client";
 
 export default function ForgotPasswordScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
-  const router = useRouter();
   const [email, setEmail] = useState(typeof params.email === "string" ? params.email : "");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleSubmit = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      Alert.alert("Check your email", "Enter a valid email address.");
+      setErrorMessage("Enter a valid email address to continue.");
       return;
     }
 
     try {
+      setErrorMessage("");
       setLoading(true);
       const { error } = await authClient.requestPasswordReset({
         email: normalizedEmail,
@@ -36,9 +36,8 @@ export default function ForgotPasswordScreen() {
       });
       if (error) throw new Error(error.message);
       setSubmitted(true);
-    } catch (error) {
-      // Keep the response generic; do not reveal whether an account exists.
-      setSubmitted(true);
+    } catch {
+      setErrorMessage("We couldn't process your request right now. Please try again in a moment.");
     } finally {
       setLoading(false);
     }
@@ -49,61 +48,98 @@ export default function ForgotPasswordScreen() {
       style={styles.screen}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.container}>
-        <TouchableOpacity style={styles.back} onPress={() => router.replace("/auth/login")}>
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={styles.iconWrap}>
-          <Ionicons name="lock-closed-outline" size={30} color={Colors.primary} />
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.container}>
+          <Link href="/auth/login" asChild>
+            <TouchableOpacity style={styles.backLink} accessibilityRole="link">
+              <Text style={styles.backLinkText}>Back to sign in</Text>
+            </TouchableOpacity>
+          </Link>
+
+          <View style={styles.brandRow}>
+            <View style={styles.brandMark} />
+            <Text style={styles.brandName}>SMARTTRADE</Text>
+            <Text style={styles.brandDivider}>/</Text>
+            <Text style={styles.brandSection}>ACCOUNT ACCESS</Text>
+          </View>
+
+          <Text style={styles.eyebrow}>PASSWORD RECOVERY</Text>
+          <Text style={styles.title}>{submitted ? "Request received" : "Reset your password"}</Text>
+          <Text style={styles.subtitle}>
+            {submitted
+              ? "If this email is registered with SmartTrade, a secure reset link will be sent. Check your inbox and spam folder."
+              : "Enter the email address you use for SmartTrade. We'll send a secure, time-limited link if it is registered with an account."}
+          </Text>
+
+          {!submitted ? (
+            <View style={styles.form}>
+              <Input
+                label="Email address"
+                placeholder="name@example.com"
+                value={email}
+                onChangeText={(value) => {
+                  setEmail(value);
+                  if (errorMessage) setErrorMessage("");
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                autoComplete="email"
+              />
+              {errorMessage ? <Text accessibilityRole="alert" style={styles.error}>{errorMessage}</Text> : null}
+              <Button
+                title={loading ? "Sending request..." : "Send recovery link"}
+                onPress={handleSubmit}
+                loading={loading}
+                disabled={loading}
+                style={styles.submit}
+              />
+            </View>
+          ) : (
+            <View style={styles.successPanel}>
+              <Text style={styles.successTitle}>Next steps</Text>
+              <Text style={styles.successText}>Check your inbox and spam folder. If no message arrives, verify the address and try again later.</Text>
+              <Button title="Return to sign in" onPress={() => { setSubmitted(false); setErrorMessage(""); }} style={styles.submit} />
+            </View>
+          )}
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Need help accessing your account?</Text>
+            <Text style={styles.footerHint}>Contact SmartTrade support for assistance.</Text>
+          </View>
         </View>
-        <Text style={styles.title}>{submitted ? "Check your inbox" : "Forgot password?"}</Text>
-        <Text style={styles.subtitle}>
-          {submitted
-            ? "If an account exists for that email, you will receive a password reset link shortly. Check your inbox and spam folder."
-            : "Enter the email address associated with your SmartTrade account. We will send you a secure link to reset your password."}
-        </Text>
-        {!submitted ? (
-          <>
-            <Input
-              label="Email address"
-              placeholder="you@example.com"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              autoComplete="email"
-              icon={<Ionicons name="mail-outline" size={20} color={Colors.primary} />}
-            />
-            <Button
-              title="Send reset link"
-              onPress={handleSubmit}
-              loading={loading}
-              disabled={loading}
-              style={styles.submit}
-            />
-          </>
-        ) : (
-          <Button title="Back to sign in" onPress={() => router.replace("/auth/login")} style={styles.submit} />
-        )}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Remember your password? </Text>
-          <Link href="/auth/login" style={styles.link}>Sign in</Link>
-        </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#FAFBFC" },
-  container: { flex: 1, width: "100%", maxWidth: 480, alignSelf: "center", justifyContent: "center", padding: Spacing.xl },
-  back: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF", marginBottom: Spacing["2xl"], borderWidth: 1, borderColor: Colors.border },
-  iconWrap: { width: 64, height: 64, borderRadius: BorderRadius.lg, backgroundColor: "#D1FAE5", alignItems: "center", justifyContent: "center", marginBottom: Spacing.xl },
-  title: { fontSize: Typography["2xl"], fontWeight: Typography.bold, color: Colors.textPrimary, marginBottom: Spacing.sm },
-  subtitle: { fontSize: Typography.base, lineHeight: 24, color: Colors.textSecondary, marginBottom: Spacing["2xl"] },
-  submit: { marginTop: Spacing.md, minHeight: 52 },
-  footer: { flexDirection: "row", justifyContent: "center", marginTop: Spacing["2xl"] },
-  footerText: { color: Colors.textSecondary, fontSize: Typography.sm },
-  link: { color: Colors.primaryDark, fontWeight: Typography.semibold, fontSize: Typography.sm },
+  screen: { flex: 1, backgroundColor: "#F5F8FC" },
+  scrollContent: { flexGrow: 1, justifyContent: "center", paddingVertical: 36 },
+  container: {
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: 28,
+  },
+  backLink: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", marginBottom: 42 },
+  backLinkText: { color: "#344054", fontSize: 14, fontWeight: "600" },
+  brandRow: { flexDirection: "row", alignItems: "center", marginBottom: 46 },
+  brandMark: { width: 5, height: 22, borderRadius: 3, backgroundColor: "#0F766E", marginRight: 10 },
+  brandName: { color: "#101828", fontSize: 12, fontWeight: "800", letterSpacing: 1.5 },
+  brandDivider: { color: "#98A2B3", marginHorizontal: 9, fontSize: 12 },
+  brandSection: { color: "#667085", fontSize: 10, fontWeight: "700", letterSpacing: 1.2 },
+  eyebrow: { color: "#0F766E", fontSize: 11, fontWeight: "800", letterSpacing: 1.8, marginBottom: 12 },
+  title: { color: "#101828", fontSize: 34, lineHeight: 41, fontWeight: "800", letterSpacing: -0.8, marginBottom: 12 },
+  subtitle: { color: "#667085", fontSize: 15, lineHeight: 25, marginBottom: 32 },
+  form: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E4EAF1", borderRadius: 18, padding: 22 },
+  error: { color: "#B42318", backgroundColor: "#FEF3F2", borderColor: "#FECDCA", borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 13, lineHeight: 19, marginTop: 2 },
+  submit: { marginTop: 16, minHeight: 54 },
+  successPanel: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E4EAF1", borderRadius: 18, padding: 22 },
+  successTitle: { color: "#101828", fontSize: 16, fontWeight: "700", marginBottom: 8 },
+  successText: { color: "#667085", fontSize: 14, lineHeight: 22 },
+  footer: { marginTop: 34, alignItems: "center" },
+  footerText: { color: "#344054", fontSize: 13, fontWeight: "600" },
+  footerHint: { color: "#98A2B3", fontSize: 12, marginTop: 5, textAlign: "center" },
 });
