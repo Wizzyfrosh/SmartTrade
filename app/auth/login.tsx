@@ -158,10 +158,7 @@ export default function Login() {
             return;
         }
 
-        Alert.alert(
-            'Password reset unavailable',
-            'Password reset email delivery has not been configured on the new authentication server yet. Your account is safe; please contact support until email delivery is enabled.'
-        );
+        router.push({ pathname: '/auth/forgot-password', params: { email: email.trim().toLowerCase() } });
     };
 
     return (
