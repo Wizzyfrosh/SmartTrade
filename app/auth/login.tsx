@@ -152,13 +152,13 @@ export default function Login() {
         }
     };
 
-    const handleForgotPassword = async () => {
-        if (!email.trim()) {
-            Alert.alert('Email Required', 'Enter your email address first.');
-            return;
-        }
-
-        router.push({ pathname: '/auth/forgot-password', params: { email: email.trim().toLowerCase() } });
+    const handleForgotPassword = () => {
+        const normalizedEmail = email.trim().toLowerCase();
+        router.push(
+            normalizedEmail
+                ? { pathname: '/auth/forgot-password', params: { email: normalizedEmail } }
+                : '/auth/forgot-password'
+        );
     };
 
     return (
