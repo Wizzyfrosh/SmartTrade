@@ -3,7 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    Alert,
     TouchableOpacity,
     Image,
     Animated,
@@ -38,6 +37,7 @@ export default function Signup() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [formError, setFormError] = useState('');
     const [selectedCountry, setSelectedCountry] = useState('NG');
     const [showCountryPicker, setShowCountryPicker] = useState(false);
 
@@ -134,21 +134,22 @@ export default function Signup() {
 
     const handleSignup = async () => {
         if (!name.trim() || !email.trim() || !password || !confirmPassword) {
-            Alert.alert('Error', 'Please fill in all fields.');
+            setFormError('Complete all fields before creating your account.');
             return;
         }
 
         if (password !== confirmPassword) {
-            Alert.alert('Error', 'Passwords do not match.');
+            setFormError('Your passwords do not match.');
             return;
         }
 
         if (password.length < 8) {
-            Alert.alert('Error', 'Password must be at least 8 characters.');
+            setFormError('Your password must contain at least 8 characters.');
             return;
         }
 
         try {
+            setFormError('');
             setLoading(true);
             const { error } = await authClient.signUp.email({
                 name: name.trim(),
@@ -164,10 +165,9 @@ export default function Signup() {
                 notificationsEnabled: true,
             }));
 
-            Alert.alert('Account created', 'Your SmartTrade account has been created successfully.');
             router.replace('/(tabs)');
         } catch (error: any) {
-            Alert.alert('Signup Failed', error?.message || 'Unable to create your account. Please try again.');
+            setFormError(error?.message || 'We could not create your account. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -338,6 +338,8 @@ export default function Signup() {
                                 }
                                 onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
                             />
+
+                            {formError ? <Text accessibilityRole="alert" style={styles.formError}>{formError}</Text> : null}
 
                             <Button
                                 title={loading ? "Creating Account..." : "Create Account"}
@@ -592,6 +594,16 @@ const styles = StyleSheet.create({
         fontSize: Typography.xs,
         fontWeight: Typography.bold,
         color: Colors.primary,
+    },
+    formError: {
+        color: '#B42318',
+        backgroundColor: '#FEF3F2',
+        borderColor: '#FECDCA',
+        borderWidth: 1,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.md,
+        fontSize: Typography.sm,
+        lineHeight: 20,
     },
     signUpButton: {
         marginTop: Spacing.md,
