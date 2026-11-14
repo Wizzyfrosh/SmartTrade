@@ -3,17 +3,17 @@ import { expoClient } from "@better-auth/expo/client";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 
-const apiUrl =
+export const AUTH_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   Constants.expoConfig?.extra?.apiUrl ||
   "https://smarttrade.froshcodeorbit.site";
 
-if (!apiUrl) {
+if (!AUTH_BASE_URL) {
   throw new Error("EXPO_PUBLIC_API_URL or expo.extra.apiUrl must be configured for this build");
 }
 
 export const authClient = createAuthClient({
-  baseURL: apiUrl,
+  baseURL: AUTH_BASE_URL,
   plugins: [
     expoClient({
       scheme: "smarttrade",
