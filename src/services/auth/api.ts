@@ -5,7 +5,7 @@ import { authClient } from "./client";
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   Constants.expoConfig?.extra?.apiUrl ||
-  "https://smarttrade-inventotryapp.vercel.app";
+  "https://smarttrade.froshcodeorbit.site";
 
 export async function apiFetch(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
