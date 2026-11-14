@@ -5,7 +5,8 @@ import Constants from "expo-constants";
 
 const apiUrl =
   process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl;
+  Constants.expoConfig?.extra?.apiUrl ||
+  "https://smarttrade.froshcodeorbit.site";
 
 if (!apiUrl) {
   throw new Error("EXPO_PUBLIC_API_URL or expo.extra.apiUrl must be configured for this build");
