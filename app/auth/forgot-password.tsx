@@ -12,7 +12,7 @@ import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, Typography, BorderRadius } from "../../src/constants/theme";
 import { Input, Button } from "../../src/components";
-import { authClient } from "../../src/services/auth/client";
+import { authClient, AUTH_BASE_URL } from "../../src/services/auth/client";
 
 export default function ForgotPasswordScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
@@ -32,7 +32,7 @@ export default function ForgotPasswordScreen() {
       setLoading(true);
       const { error } = await authClient.requestPasswordReset({
         email: normalizedEmail,
-        redirectTo: "https://smarttrade.froshcodeorbit.site/auth/reset-password",
+        redirectTo: `${AUTH_BASE_URL.replace(/\/$/, "")}/auth/reset-password`,
       });
       if (error) throw new Error(error.message);
       setSubmitted(true);
