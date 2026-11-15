@@ -17,7 +17,7 @@ export default async function authHandler(req: Parameters<typeof betterAuthHandl
   } catch (error) {
     console.error("[SmartTrade Auth] Handler failed", {
       method: req.method,
-      url: req.url,
+      path: (req.url || "").split("?")[0],
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
