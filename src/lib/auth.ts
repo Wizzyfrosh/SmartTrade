@@ -22,13 +22,7 @@ const pool = globalForPool.smartTradePool ?? new Pool({
 if (process.env.NODE_ENV !== "production") globalForPool.smartTradePool = pool;
 
 const trustedOrigins = [
-  authUrl,
-  // Stable Vercel aliases and the currently observed production deployment URL.
-  // These are explicit origins; do not trust arbitrary *.vercel.app hosts.
-  "https://smarttrade-inventotryapp.vercel.app",
-  "https://dist-c29m0j95q-umanor-wisdom-chizoba-s-projects.vercel.app",
-  "https://dist-umanor-wisdom-chizoba-s-projects.vercel.app",
-  "https://dist-git-main-umanor-wisdom-chizoba-s-projects.vercel.app",
+  // Vercel and canonical web hosts are added from baseURL.allowedHosts.
   "smarttrade://",
   ...(process.env.NODE_ENV !== "production"
     ? ["http://localhost:8081", "http://localhost:19006"]
@@ -99,7 +93,18 @@ async function sendPasswordResetEmail(to: string, resetUrl: string, userName?: s
 
 export const auth = betterAuth({
   appName: "SmartTrade",
-  baseURL: authUrl,
+  // Resolve auth URLs and cookie scope from the actual host serving this deployment.
+  // This supports the canonical domain and this Vercel project's deployment hosts
+  // without redirecting API requests across origins.
+  baseURL: {
+    allowedHosts: [
+      "smarttrade.froshcodeorbit.site",
+      "smarttrade-inventotryapp.vercel.app",
+      "*.umanor-wisdom-chizoba-s-projects.vercel.app",
+    ],
+    protocol: "https",
+    fallback: authUrl,
+  },
   secret: authSecret,
   database: pool,
   trustedOrigins: [...new Set(trustedOrigins)],
