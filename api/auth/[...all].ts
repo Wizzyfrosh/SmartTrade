@@ -7,7 +7,7 @@ export default async function authHandler(req: Parameters<typeof betterAuthHandl
   // Temporary production diagnostics: never log request bodies, credentials, or tokens.
   console.info("[SmartTrade Auth] Request received", {
     method: req.method,
-    url: req.url,
+    path: (req.url || "").split("?")[0],
     origin: req.headers.origin,
     host: req.headers.host,
   });
