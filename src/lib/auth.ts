@@ -23,6 +23,12 @@ if (process.env.NODE_ENV !== "production") globalForPool.smartTradePool = pool;
 
 const trustedOrigins = [
   authUrl,
+  // Stable Vercel aliases and the currently observed production deployment URL.
+  // These are explicit origins; do not trust arbitrary *.vercel.app hosts.
+  "https://smarttrade-inventotryapp.vercel.app",
+  "https://dist-c29m0j95q-umanor-wisdom-chizoba-s-projects.vercel.app",
+  "https://dist-umanor-wisdom-chizoba-s-projects.vercel.app",
+  "https://dist-git-main-umanor-wisdom-chizoba-s-projects.vercel.app",
   "smarttrade://",
   ...(process.env.NODE_ENV !== "production"
     ? ["http://localhost:8081", "http://localhost:19006"]
