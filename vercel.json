@@ -31,9 +31,7 @@
       "has": [
         {
           "type": "host",
-          "value": {
-            "suf": ".vercel.app"
-          }
+          "value": ".*\\.vercel\\.app"
         }
       ],
       "destination": "https://smarttrade.froshcodeorbit.site/:path*",
