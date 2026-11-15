@@ -27,7 +27,7 @@
   ],
   "redirects": [
     {
-      "source": "/:path*",
+      "source": "/:path((?!api/).*)",
       "has": [
         {
           "type": "host",
@@ -40,7 +40,7 @@
       "permanent": false
     },
     {
-      "source": "/:path*",
+      "source": "/:path((?!api/).*)",
       "has": [
         {
           "type": "host",
