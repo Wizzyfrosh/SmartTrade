@@ -27,7 +27,7 @@
   ],
   "redirects": [
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "has": [
         {
           "type": "host",
@@ -36,8 +36,8 @@
           }
         }
       ],
-      "destination": "https://smarttrade.froshcodeorbit.site/$1",
-      "permanent": true
+      "destination": "https://smarttrade.froshcodeorbit.site/:path*",
+      "permanent": false
     }
   ]
 }
