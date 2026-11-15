@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { StatCard, Card, EmptyState, Button, ResponsiveContainer } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
+import { dbService } from '../../src/services/database/sqlite.service';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { formatCurrency } from '../../src/utils/currency';
 import { useSettings } from '../../src/contexts/SettingsContext';
 import type { Product } from '../../src/types';
@@ -27,11 +29,12 @@ export default function Inventory() {
     const [searchQuery, setSearchQuery] = useState('');
 
     const { currency, notificationsEnabled, lowStockThreshold, colors } = useSettings();
+    const { user } = useAuth();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
-        loadInventory();
-    }, []);
+        if (user?.id) void loadInventory();
+    }, [user?.id]);
 
     // Notification Logic for Low Stock
     useEffect(() => {
@@ -42,25 +45,41 @@ export default function Inventory() {
     }, [stats, notificationsEnabled]);
 
     const loadInventory = async () => {
+        if (!user?.id) return;
         try {
-            const allProducts = await supabaseService.getAllProducts();
-            setProducts(allProducts);
+            await dbService.init(user.id);
+            const [localProducts, localStats] = await Promise.all([
+                dbService.getAllProducts(),
+                dbService.getDashboardStats(),
+            ]);
+            setProducts(localProducts);
+            setStats(localStats);
 
-            const dashboardStats = await supabaseService.getDashboardStats();
-            setStats(dashboardStats);
+            try {
+                const remoteProducts = await supabaseService.getAllProducts();
+                await dbService.cacheProducts(remoteProducts);
+                const [freshProducts, freshStats] = await Promise.all([
+                    dbService.getAllProducts(),
+                    dbService.getDashboardStats(),
+                ]);
+                setProducts(freshProducts);
+                setStats(freshStats);
+            } catch (networkError) {
+                console.warn('Showing cached inventory while offline:', networkError);
+            }
         } catch (error) {
-            console.error('Failed to load inventory:', error);
+            console.error('Failed to load local inventory:', error);
         }
     };
 
     const handleSearch = async (query: string) => {
         setSearchQuery(query);
-        if (query.trim()) {
-            const results = await supabaseService.searchProducts(query);
-            setProducts(results);
-        } else {
-            const allProducts = await supabaseService.getAllProducts();
-            setProducts(allProducts);
+        if (!user?.id) return;
+        try {
+            await dbService.init(user.id);
+            setProducts(await dbService.searchProducts(query));
+        } catch (error) {
+            console.error('Local inventory search failed:', error);
         }
     };
 

@@ -3,7 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    Alert,
     TouchableOpacity,
     Image,
     Animated,
@@ -15,7 +14,7 @@ import {
 import { useRouter, Link } from 'expo-router';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { Input, Button } from '../../src/components';
-import { supabase } from '../../src/services/supabase/client';
+import { authClient } from '../../src/services/auth/client';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleAuthButton } from '../../src/components/GoogleAuthButton';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,6 +27,7 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [formError, setFormError] = useState('');
 
     // Animation values
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -132,51 +132,22 @@ export default function Login() {
     });
 
     const handleLogin = async () => {
-        if (!email || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
+        if (!email.trim() || !password) {
+            setFormError('Enter your email address and password to continue.');
             return;
         }
 
         try {
+            setFormError('');
             setLoading(true);
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
+            const { error } = await authClient.signIn.email({
+                email: email.trim().toLowerCase(),
                 password,
             });
-
-            if (error) throw error;
+            if (error) throw new Error(error.message);
+            router.replace('/(tabs)');
         } catch (error: any) {
-            let message = error.message;
-            if (message.includes('Invalid login credentials')) {
-                message = 'Invalid email or password. Please check your credentials.';
-            }
-            Alert.alert('Login Failed', message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleForgotPassword = async () => {
-        if (!email) {
-            Alert.alert('Email Required', 'Please enter your email address first, then tap "Forgot password?"');
-            return;
-        }
-
-        try {
-            setLoading(true);
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: 'smarttrade://reset-password',
-            });
-
-            if (error) throw error;
-
-            Alert.alert(
-                'Password Reset Email Sent',
-                'Check your inbox for the password reset link. If you don\'t see it, check your spam folder.',
-                [{ text: 'OK' }]
-            );
-        } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to send reset email. Please try again.');
+            setFormError(error?.message || 'We could not sign you in. Check your details and try again.');
         } finally {
             setLoading(false);
         }
@@ -258,15 +229,18 @@ export default function Login() {
                             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
                         ]}
                     >
-                        <GoogleAuthButton />
-
-                        <View style={styles.dividerContainer}>
+                        {process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === 'true' && (
+                            <>
+                                <GoogleAuthButton />
+                                <View style={styles.dividerContainer}>
                             <View style={styles.dividerLine} />
                             <View style={styles.dividerBadge}>
                                 <Text style={styles.dividerText}>OR</Text>
                             </View>
                             <View style={styles.dividerLine} />
-                        </View>
+                                </View>
+                            </>
+                        )}
 
                         <View style={styles.inputsContainer}>
                             <Input
@@ -294,9 +268,20 @@ export default function Login() {
                                 onRightIconPress={() => setShowPassword(!showPassword)}
                             />
 
-                            <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
+                            <TouchableOpacity
+                                style={styles.forgotPassword}
+                                accessibilityRole="link"
+                                accessibilityLabel="Forgot password"
+                                activeOpacity={0.65}
+                                onPress={() => router.push({
+                                    pathname: '/auth/forgot-password',
+                                    params: email.trim() ? { email: email.trim().toLowerCase() } : {},
+                                })}
+                            >
                                 <Text style={styles.forgotPasswordText}>Forgot password?</Text>
                             </TouchableOpacity>
+
+                            {formError ? <Text accessibilityRole="alert" style={styles.formError}>{formError}</Text> : null}
 
                             <Button
                                 title={loading ? "Signing in..." : "Sign In"}
@@ -447,6 +432,16 @@ const styles = StyleSheet.create({
     },
     inputsContainer: {
         gap: Spacing.md,
+    },
+    formError: {
+        color: '#B42318',
+        backgroundColor: '#FEF3F2',
+        borderColor: '#FECDCA',
+        borderWidth: 1,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.md,
+        fontSize: Typography.sm,
+        lineHeight: 20,
     },
     forgotPassword: {
         alignSelf: 'flex-end',

@@ -1,0 +1,48 @@
+name: Refresh npm lockfile
+
+on:
+  push:
+    branches:
+      - neon-better-auth-api
+    paths:
+      - package.json
+      - "src/**/*.ts"
+      - "src/**/*.tsx"
+      - "api/**/*.ts"
+      - "app/**/*.tsx"
+      - app.json
+      - vercel.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smarttrade-lockfile-{{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: neon-better-auth-api
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Regenerate package lock
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Dependency vulnerability report
+        run: |
+          npm audit --json > npm-audit.json || true
+          node -e 'const a=require("./npm-audit.json"); for (const [name,v] of Object.entries(a.vulnerabilities || {})) console.log(`${v.severity}: ${name} | direct=${v.isDirect} | fixAvailable=${JSON.stringify(v.fixAvailable)}`); console.log("Totals:", JSON.stringify(a.metadata?.vulnerabilities || {}));'
+      - name: TypeScript validation
+        run: npm run typecheck
+      - name: Expo web export
+        run: npm run build:web

@@ -9,13 +9,29 @@ import type { Product, Sale, OutboxItem } from '../../types';
 
 class DatabaseService {
     private db: SQLite.SQLiteDatabase | null = null;
+    private currentUserId: string | null = null;
 
     /**
      * Initialize database and create tables
      */
-    async init(): Promise<void> {
+    async init(userId: string): Promise<void> {
+        if (!userId) throw new Error('A signed-in user is required to open local SmartTrade data');
+        if (this.db && this.currentUserId === userId) return;
+        if (this.db && this.currentUserId !== userId) {
+            await this.db.closeAsync();
+            this.db = null;
+            this.currentUserId = null;
+        }
         try {
-            this.db = await SQLite.openDatabaseAsync(DB_NAME);
+            const suffix = userId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 32);
+            let hash = 2166136261;
+            for (let index = 0; index < userId.length; index += 1) {
+                hash ^= userId.charCodeAt(index);
+                hash = Math.imul(hash, 16777619);
+            }
+            const scopedDatabaseName = `${DB_NAME.replace(/\.db$/, '')}-${suffix}-${(hash >>> 0).toString(16)}.db`;
+            this.db = await SQLite.openDatabaseAsync(scopedDatabaseName);
+            this.currentUserId = userId;
             await this.createTables();
             console.log('✅ Database initialized successfully');
         } catch (error) {
@@ -43,11 +59,17 @@ class DatabaseService {
         low_stock_threshold INTEGER DEFAULT 5,
         barcode TEXT,
         image_url TEXT,
+        image_object_key TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         synced INTEGER DEFAULT 0
       );
     `);
+
+        const productColumns = await this.db.getAllAsync<{ name: string }>('PRAGMA table_info(products)');
+        if (!productColumns.some((column) => column.name === 'image_object_key')) {
+            await this.db.execAsync('ALTER TABLE products ADD COLUMN image_object_key TEXT');
+        }
 
         // Sales table
         await this.db.execAsync(`
@@ -76,9 +98,21 @@ class DatabaseService {
         operation TEXT NOT NULL,
         payload TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        retry_count INTEGER DEFAULT 0
+        retry_count INTEGER DEFAULT 0,
+        last_error TEXT,
+        next_retry_at INTEGER
       );
     `);
+
+        const outboxColumns = await this.db.getAllAsync<{ name: string }>('PRAGMA table_info(outbox)');
+        if (!outboxColumns.some((column) => column.name === 'last_error')) {
+            await this.db.execAsync('ALTER TABLE outbox ADD COLUMN last_error TEXT');
+        }
+
+        const retryColumns = await this.db.getAllAsync<{ name: string }>('PRAGMA table_info(outbox)');
+        if (!retryColumns.some((column) => column.name === 'next_retry_at')) {
+            await this.db.execAsync('ALTER TABLE outbox ADD COLUMN next_retry_at INTEGER');
+        }
 
         // Settings table
         await this.db.execAsync(`
@@ -125,29 +159,18 @@ class DatabaseService {
             synced: false,
         };
 
-        await this.db.runAsync(
-            `INSERT INTO products (id, name, sku, category, cost_price, selling_price, stock_quantity, 
-       low_stock_threshold, barcode, image_url, created_at, updated_at, synced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                newProduct.id,
-                newProduct.name,
-                newProduct.sku || null,
-                newProduct.category || null,
-                newProduct.costPrice,
-                newProduct.sellingPrice,
-                newProduct.stockQuantity,
-                newProduct.lowStockThreshold,
-                newProduct.barcode || null,
-                newProduct.imageUrl || null,
-                newProduct.createdAt,
-                newProduct.updatedAt,
-                0,
-            ]
-        );
-
-        // Add to outbox for sync
-        await this.addToOutbox('product', id, 'INSERT', newProduct);
+        await this.db.withTransactionAsync(async () => {
+            await this.db!.runAsync(
+                `INSERT INTO products (id, name, sku, category, cost_price, selling_price, stock_quantity,
+                 low_stock_threshold, barcode, image_url, image_object_key, created_at, updated_at, synced)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [newProduct.id, newProduct.name, newProduct.sku || null, newProduct.category || null,
+                 newProduct.costPrice, newProduct.sellingPrice, newProduct.stockQuantity,
+                 newProduct.lowStockThreshold, newProduct.barcode || null, newProduct.imageUrl || null, newProduct.imageObjectKey || null,
+                 newProduct.createdAt, newProduct.updatedAt, 0]
+            );
+            await this.addToOutbox('product', id, 'INSERT', newProduct);
+        });
 
         return newProduct;
     }
@@ -163,6 +186,40 @@ class DatabaseService {
         );
 
         return result.map(this.mapRowToProduct);
+    }
+
+    /**
+     * Refresh the local read cache from the authenticated server.
+     * Never overwrite unsynced local edits.
+     */
+    async cacheProducts(products: Product[]): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+        await this.db.withTransactionAsync(async () => {
+            for (const product of products) {
+                const pendingDelete = await this.db!.getFirstAsync<{ id: string }>(
+                    "SELECT id FROM outbox WHERE entity_type = 'product' AND entity_id = ? AND operation = 'DELETE' LIMIT 1",
+                    [product.id]
+                );
+                if (pendingDelete) continue;
+                await this.db!.runAsync(
+                    `INSERT INTO products
+                     (id,name,sku,category,cost_price,selling_price,stock_quantity,low_stock_threshold,
+                      barcode,image_url,image_object_key,created_at,updated_at,synced)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)
+                     ON CONFLICT(id) DO UPDATE SET
+                       name=excluded.name,sku=excluded.sku,category=excluded.category,
+                       cost_price=excluded.cost_price,selling_price=excluded.selling_price,
+                       stock_quantity=excluded.stock_quantity,low_stock_threshold=excluded.low_stock_threshold,
+                       barcode=excluded.barcode,image_url=excluded.image_url,image_object_key=excluded.image_object_key,
+                       updated_at=excluded.updated_at,synced=1
+                     WHERE products.synced=1`,
+                    [product.id, product.name, product.sku || null, product.category || null,
+                     product.costPrice, product.sellingPrice, product.stockQuantity,
+                     product.lowStockThreshold, product.barcode || null, product.imageUrl || null,
+                     product.imageObjectKey || null, product.createdAt, product.updatedAt]
+                );
+            }
+        });
     }
 
     /**
@@ -196,28 +253,26 @@ class DatabaseService {
             synced: false,
         };
 
-        await this.db.runAsync(
-            `UPDATE products SET name = ?, sku = ?, category = ?, cost_price = ?, selling_price = ?,
-       stock_quantity = ?, low_stock_threshold = ?, barcode = ?, image_url = ?, 
-       updated_at = ?, synced = ? WHERE id = ?`,
-            [
-                updated.name,
-                updated.sku || null,
-                updated.category || null,
-                updated.costPrice,
-                updated.sellingPrice,
-                updated.stockQuantity,
-                updated.lowStockThreshold,
-                updated.barcode || null,
-                updated.imageUrl || null,
-                updated.updatedAt,
-                0,
-                id,
-            ]
-        );
-
-        // Add to outbox for sync
-        await this.addToOutbox('product', id, 'UPDATE', updated);
+        await this.db.withTransactionAsync(async () => {
+            const stockDelta = updated.stockQuantity - existing.stockQuantity;
+            await this.db!.runAsync(
+                `UPDATE products SET name = ?, sku = ?, category = ?, cost_price = ?, selling_price = ?,
+                 stock_quantity = ?, low_stock_threshold = ?, barcode = ?, image_url = ?, image_object_key = ?,
+                 updated_at = ?, synced = ? WHERE id = ?`,
+                [updated.name, updated.sku || null, updated.category || null, updated.costPrice,
+                 updated.sellingPrice, updated.stockQuantity, updated.lowStockThreshold,
+                 updated.barcode || null, updated.imageUrl || null, updated.imageObjectKey || null, updated.updatedAt, 0, id]
+            );
+            await this.addToOutbox('product', id, 'UPDATE', updated);
+            if (stockDelta !== 0) {
+                await this.addToOutbox('stock_adjustment', id, 'INSERT', {
+                    productId: id,
+                    quantityDelta: stockDelta,
+                    reason: 'manual_adjustment',
+                    createdAt: updated.updatedAt,
+                });
+            }
+        });
 
         return updated;
     }
@@ -228,8 +283,10 @@ class DatabaseService {
     async deleteProduct(id: string): Promise<void> {
         if (!this.db) throw new Error('Database not initialized');
 
-        await this.db.runAsync('DELETE FROM products WHERE id = ?', [id]);
-        await this.addToOutbox('product', id, 'DELETE', { id });
+        await this.db.withTransactionAsync(async () => {
+            await this.addToOutbox('product', id, 'DELETE', { id });
+            await this.db!.runAsync('DELETE FROM products WHERE id = ?', [id]);
+        });
     }
 
     /**
@@ -296,34 +353,46 @@ class DatabaseService {
             synced: false,
         };
 
-        // Start transaction
-        await this.db.runAsync(
-            `INSERT INTO sales (id, product_id, quantity, unit_price, cost_price, total_revenue, 
-       total_cost, profit, sale_date, created_at, synced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                newSale.id,
-                newSale.productId,
-                newSale.quantity,
-                newSale.unitPrice,
-                newSale.costPrice,
-                newSale.totalRevenue,
-                newSale.totalCost,
-                newSale.profit,
-                newSale.saleDate,
-                newSale.createdAt,
-                0,
-            ]
-        );
+        // Keep the sale, stock decrement and outbox event in one transaction.
+        // A failed stock check or insert rolls back all three writes.
+        await this.db.withTransactionAsync(async () => {
+            const stockUpdate = await this.db!.runAsync(
+                `UPDATE products
+                 SET stock_quantity = stock_quantity - ?, updated_at = ?, synced = 0
+                 WHERE id = ? AND stock_quantity >= ?`,
+                [newSale.quantity, now, newSale.productId, newSale.quantity]
+            );
 
-        // Update product stock
-        await this.db.runAsync(
-            'UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ? WHERE id = ?',
-            [newSale.quantity, now, newSale.productId]
-        );
+            if (stockUpdate.changes !== 1) {
+                const product = await this.db!.getFirstAsync<{ id: string }>(
+                    'SELECT id FROM products WHERE id = ?',
+                    [newSale.productId]
+                );
+                if (!product) throw new Error('Product not found');
+                throw new Error('Insufficient stock');
+            }
 
-        // Add to outbox for sync
-        await this.addToOutbox('sale', id, 'INSERT', newSale);
+            await this.db!.runAsync(
+                `INSERT INTO sales (id, product_id, quantity, unit_price, cost_price, total_revenue,
+                 total_cost, profit, sale_date, created_at, synced)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    newSale.id,
+                    newSale.productId,
+                    newSale.quantity,
+                    newSale.unitPrice,
+                    newSale.costPrice,
+                    newSale.totalRevenue,
+                    newSale.totalCost,
+                    newSale.profit,
+                    newSale.saleDate,
+                    newSale.createdAt,
+                    0,
+                ]
+            );
+
+            await this.addToOutbox('sale', id, 'INSERT', newSale);
+        });
 
         return newSale;
     }
@@ -339,6 +408,31 @@ class DatabaseService {
         );
 
         return result.map(this.mapRowToSale);
+    }
+
+    /**
+     * Cache server sales without overwriting pending local sales.
+     */
+    async cacheSales(sales: Sale[]): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+        await this.db.withTransactionAsync(async () => {
+            for (const sale of sales) {
+                await this.db!.runAsync(
+                    `INSERT INTO sales
+                     (id,product_id,quantity,unit_price,cost_price,total_revenue,total_cost,profit,
+                      sale_date,created_at,synced)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,1)
+                     ON CONFLICT(id) DO UPDATE SET
+                       product_id=excluded.product_id,quantity=excluded.quantity,
+                       unit_price=excluded.unit_price,cost_price=excluded.cost_price,
+                       total_revenue=excluded.total_revenue,total_cost=excluded.total_cost,
+                       profit=excluded.profit,sale_date=excluded.sale_date,synced=1
+                     WHERE sales.synced=1`,
+                    [sale.id, sale.productId, sale.quantity, sale.unitPrice, sale.costPrice,
+                     sale.totalRevenue, sale.totalCost, sale.profit, sale.saleDate, sale.createdAt]
+                );
+            }
+        });
     }
 
     /**
@@ -373,7 +467,7 @@ class DatabaseService {
      * Add item to outbox for sync
      */
     private async addToOutbox(
-        entityType: 'product' | 'sale',
+        entityType: 'product' | 'sale' | 'stock_adjustment',
         entityId: string,
         operation: 'INSERT' | 'UPDATE' | 'DELETE',
         payload: any
@@ -395,10 +489,78 @@ class DatabaseService {
         if (!this.db) throw new Error('Database not initialized');
 
         const result = await this.db.getAllAsync<any>(
-            'SELECT * FROM outbox ORDER BY created_at ASC'
+            'SELECT * FROM outbox WHERE next_retry_at IS NULL OR next_retry_at <= ? ORDER BY created_at ASC, rowid ASC',
+            [Date.now()]
         );
 
         return result.map(this.mapRowToOutboxItem);
+    }
+
+    /**
+     * Acknowledge a synced outbox item and update its local entity atomically.
+     */
+    async acknowledgeOutboxItem(item: OutboxItem): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+        await this.db.withTransactionAsync(async () => {
+            await this.db!.runAsync('DELETE FROM outbox WHERE id = ?', [item.id]);
+            if (item.entityType === 'product' && item.operation !== 'DELETE') {
+                await this.db!.runAsync(
+                    `UPDATE products SET synced = 1 WHERE id = ?
+                     AND NOT EXISTS (
+                       SELECT 1 FROM outbox
+                       WHERE (entity_type = 'product' OR entity_type = 'stock_adjustment')
+                         AND entity_id = ?
+                     )`,
+                    [item.entityId, item.entityId]
+                );
+            } else if (item.entityType === 'sale') {
+                await this.db!.runAsync('UPDATE sales SET synced = 1 WHERE id = ?', [item.entityId]);
+                const payload = JSON.parse(item.payload) as Sale;
+                await this.db!.runAsync(
+                    `UPDATE products SET synced = 1 WHERE id = ?
+                     AND NOT EXISTS (
+                       SELECT 1 FROM outbox
+                       WHERE (entity_type = 'product' OR entity_type = 'stock_adjustment')
+                         AND entity_id = ?
+                     )`,
+                    [payload.productId, payload.productId]
+                );
+            } else if (item.entityType === 'stock_adjustment') {
+                await this.db!.runAsync(
+                    `UPDATE products SET synced = 1 WHERE id = ?
+                     AND NOT EXISTS (
+                       SELECT 1 FROM outbox
+                       WHERE (entity_type = 'product' OR entity_type = 'stock_adjustment')
+                         AND entity_id = ?
+                     )`,
+                    [item.entityId, item.entityId]
+                );
+            }
+        });
+    }
+
+    async recordOutboxFailure(id: string, message: string): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+        const row = await this.db.getFirstAsync<{ retry_count: number }>(
+            'SELECT retry_count FROM outbox WHERE id = ?', [id]
+        );
+        const nextRetryCount = Number(row?.retry_count ?? 0) + 1;
+        const delay = Math.min(60 * 60 * 1000, 2000 * (2 ** Math.min(nextRetryCount, 10)));
+        await this.db.runAsync(
+            'UPDATE outbox SET retry_count = ?, last_error = ?, next_retry_at = ? WHERE id = ?',
+            [nextRetryCount, message.slice(0, 500), Date.now() + delay, id]
+        );
+    }
+
+    async retryDeferredOutboxItems(): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+        await this.db.runAsync('UPDATE outbox SET next_retry_at = NULL WHERE next_retry_at IS NOT NULL');
+    }
+
+    async getPendingOutboxCount(): Promise<number> {
+        if (!this.db) throw new Error('Database not initialized');
+        const row = await this.db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM outbox');
+        return Number(row?.count ?? 0);
     }
 
     /**
@@ -462,6 +624,7 @@ class DatabaseService {
             lowStockThreshold: row.low_stock_threshold,
             barcode: row.barcode,
             imageUrl: row.image_url,
+            imageObjectKey: row.image_object_key ?? undefined,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             synced: row.synced === 1,
@@ -499,6 +662,7 @@ class DatabaseService {
             payload: row.payload,
             createdAt: row.created_at,
             retryCount: row.retry_count,
+            lastError: row.last_error ?? null,
         };
     }
 

@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Typography, BorderRadius } from '../../src/constants/theme';
 import { Button, EmptyState, Card, ResponsiveContainer } from '../../src/components';
 import { supabaseService } from '../../src/services/supabase/db';
+import { dbService } from '../../src/services/database/sqlite.service';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { formatCurrency } from '../../src/utils/currency';
 import { useSettings } from '../../src/contexts/SettingsContext';
 import type { Sale } from '../../src/types';
@@ -16,17 +18,27 @@ export default function Sales() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const { currency, colors } = useSettings();
+    const { user } = useAuth();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
-        loadSales();
-    }, []);
+        if (user?.id) void loadSales();
+    }, [user?.id]);
 
     const loadSales = async () => {
+        if (!user?.id) return;
         try {
             setLoading(true);
-            const allSales = await supabaseService.getAllSales();
-            setSales(allSales);
+            await dbService.init(user.id);
+            setSales(await dbService.getAllSales());
+
+            try {
+                const remoteSales = await supabaseService.getAllSales();
+                await dbService.cacheSales(remoteSales);
+                setSales(await dbService.getAllSales());
+            } catch (networkError) {
+                console.warn('Showing locally cached sales while offline:', networkError);
+            }
         } catch (error) {
             console.error('Failed to load sales:', error);
         } finally {

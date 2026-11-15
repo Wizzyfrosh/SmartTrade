@@ -11,16 +11,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { Button, Input, ResponsiveContainer } from '../../src/components';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { supabase } from '../../src/services/supabase/client';
+import { authClient } from '../../src/services/auth/client';
 import { COUNTRY_CURRENCY_MAP } from '../../src/utils/currency';
 import { useSettings } from '../../src/contexts/SettingsContext';
 import * as ImagePicker from 'expo-image-picker';
-import { decode } from 'base64-arraybuffer';
+import { profileService } from '../../src/services/profile/profile';
+import { uploadPrivateImage } from '../../src/services/profile/upload';
+import { dbService } from '../../src/services/database/sqlite.service';
+import { syncService } from '../../src/services/sync/sync.service';
 
 export default function Settings() {
     const { signOut, user } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [pendingSync, setPendingSync] = useState(0);
+    const [syncMessage, setSyncMessage] = useState('');
 
     // Use Context
     const { currency, lowStockThreshold, notificationsEnabled, updateSettings, theme, colors } = useSettings();
@@ -42,6 +48,53 @@ export default function Settings() {
         setLocalThreshold(lowStockThreshold.toString());
     }, [lowStockThreshold]);
 
+    useEffect(() => {
+        let active = true;
+        profileService.get().then(async (profile) => {
+            if (!active) return;
+            setBusinessName(profile.businessName || '');
+            if (profile.avatarObjectKey) {
+                const url = await profileService.getPrivateImageUrl(profile.avatarObjectKey);
+                if (active) setAvatarUrl(url);
+            }
+        }).catch((error) => console.warn('Could not load business profile:', error));
+        return () => { active = false; };
+    }, []);
+
+    const refreshSyncStatus = async () => {
+        if (!user?.id) return;
+        try {
+            await dbService.init(user.id);
+            setPendingSync(await dbService.getPendingOutboxCount());
+        } catch (error) {
+            console.warn('Could not read pending sync count:', error);
+        }
+    };
+
+    useEffect(() => {
+        void refreshSyncStatus();
+    }, [user?.id]);
+
+    const handleSyncNow = async () => {
+        if (!user?.id || syncing) return;
+        try {
+            setSyncing(true);
+            await dbService.retryDeferredOutboxItems();
+            const result = await syncService.syncNow(user.id);
+            setPendingSync(result.pending);
+            setSyncMessage(result.offline
+                ? 'No internet connection. Your changes remain saved on this device.'
+                : result.failed
+                    ? `${result.synced} synced; ${result.failed} need attention.`
+                    : `${result.synced} changes synchronized.`);
+        } catch (error: any) {
+            setSyncMessage(error?.message || 'Synchronization failed. Your queued changes are safe.');
+        } finally {
+            setSyncing(false);
+            await refreshSyncStatus();
+        }
+    };
+
     const handleThresholdChange = (text: string) => {
         setLocalThreshold(text);
         const num = parseInt(text);
@@ -52,6 +105,8 @@ export default function Settings() {
 
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [editName, setEditName] = useState('');
+    const [businessName, setBusinessName] = useState('');
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isCurrencyModalVisible, setIsCurrencyModalVisible] = useState(false);
     const [isThemeModalVisible, setIsThemeModalVisible] = useState(false);
 
@@ -63,82 +118,16 @@ export default function Settings() {
 
         try {
             setLoading(true);
-            const { error } = await supabase.auth.updateUser({
-                data: { full_name: editName.trim() }
-            });
+            const { error } = await authClient.updateUser({ name: editName.trim() });
 
             if (error) throw error;
+            await profileService.update({ businessName: businessName.trim() });
 
             Alert.alert('Success', 'Profile updated successfully');
             setIsEditingProfile(false);
         } catch (error: any) {
             console.error('Error updating profile:', error);
             Alert.alert('Error', error.message || 'Failed to update profile');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handlePickImage = async () => {
-        try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.5,
-                base64: true,
-            });
-
-            if (!result.canceled && result.assets[0].base64) {
-                await uploadAvatar(result.assets[0]);
-            }
-        } catch (error) {
-            console.error('Error picking image:', error);
-            Alert.alert('Error', 'Failed to pick image');
-        }
-    };
-
-    const uploadAvatar = async (image: ImagePicker.ImagePickerAsset) => {
-        if (!user?.id) return;
-
-        try {
-            setLoading(true);
-            const base64 = image.base64;
-            const fileExt = image.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
-            const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-            const filePath = `${fileName}`;
-
-            // Upload to Supabase 'avatars' bucket
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, decode(base64!), {
-                    contentType: image.mimeType ?? 'image/jpeg',
-                    upsert: true,
-                });
-
-            if (uploadError) {
-                if (uploadError.message.includes('Bucket not found')) {
-                    throw new Error("Storage bucket 'avatars' not found. Please contact admin.");
-                }
-                throw uploadError;
-            }
-
-            // Get Public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath);
-
-            // Update User Metadata
-            const { error: updateError } = await supabase.auth.updateUser({
-                data: { avatar_url: publicUrl }
-            });
-
-            if (updateError) throw updateError;
-
-            Alert.alert('Success', 'Profile picture updated!');
-        } catch (error: any) {
-            console.error('Error uploading avatar:', error);
-            Alert.alert('Error', error.message || 'Failed to upload profile picture');
         } finally {
             setLoading(false);
         }
@@ -153,7 +142,7 @@ export default function Settings() {
     };
 
     const openProfileEdit = () => {
-        setEditName(user?.user_metadata?.full_name || '');
+        setEditName(user?.name || '');
         setIsEditingProfile(true);
     };
 
@@ -162,6 +151,37 @@ export default function Settings() {
         { label: 'Light', value: 'light' },
         { label: 'Dark', value: 'dark' },
     ];
+
+    const handlePickImage = async () => {
+        try {
+            const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permission.granted) {
+                Alert.alert('Permission required', 'Allow photo library access to select a profile image.');
+                return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.82,
+            });
+            if (result.canceled || !result.assets[0]) return;
+            const asset = result.assets[0];
+            const contentType = asset.mimeType || 'image/jpeg';
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) {
+                Alert.alert('Unsupported image', 'Choose a JPEG, PNG or WebP image.');
+                return;
+            }
+            setLoading(true);
+            const objectKey = await uploadPrivateImage(asset.uri, contentType, 'avatar');
+            await profileService.update({ avatarObjectKey: objectKey });
+            setAvatarUrl(await profileService.getPrivateImageUrl(objectKey));
+        } catch (error: any) {
+            Alert.alert('Upload failed', error?.message || 'Unable to update profile image.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <ResponsiveContainer>
@@ -178,14 +198,14 @@ export default function Settings() {
                         <View style={styles.profileCard}>
                             <TouchableOpacity onPress={handlePickImage} >
                                 <View style={styles.avatar}>
-                                    {user?.user_metadata?.avatar_url ? (
+                                    {(avatarUrl || user?.image) ? (
                                         <Image
-                                            source={{ uri: user.user_metadata.avatar_url }}
+                                            source={{ uri: avatarUrl || user?.image || '' }}
                                             style={styles.avatarImage}
                                         />
                                     ) : (
                                         <Text style={styles.avatarText}>
-                                            {user?.user_metadata?.full_name?.charAt(0).toUpperCase() || 'U'}
+                                            {user?.name?.charAt(0).toUpperCase() || 'U'}
                                         </Text>
                                     )}
                                     <View style={styles.cameraIconBadge}>
@@ -194,13 +214,33 @@ export default function Settings() {
                                 </View>
                             </TouchableOpacity>
                             <View style={styles.profileInfo}>
-                                <Text style={styles.userName}>{user?.user_metadata?.full_name || 'User'}</Text>
+                                <Text style={styles.userName}>{user?.name || 'User'}</Text>
                                 <Text style={styles.userEmail}>{user?.email}</Text>
                             </View>
                             <TouchableOpacity onPress={openProfileEdit} style={styles.editButton}>
                                 <Ionicons name="pencil" size={20} color={colors.primary} />
                             </TouchableOpacity>
                         </View>
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Data Synchronization</Text>
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.settingLabel}>Pending changes</Text>
+                                <Text style={styles.settingDesc}>
+                                    {pendingSync === 0 ? 'All queued changes are synchronized' : `${pendingSync} change(s) waiting to sync`}
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={handleSyncNow}
+                                disabled={syncing}
+                                style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, backgroundColor: colors.primary, opacity: syncing ? 0.6 : 1 }}
+                            >
+                                <Text style={{ color: colors.textWhite, fontWeight: '600' }}>{syncing ? 'Syncing…' : 'Sync now'}</Text>
+                            </TouchableOpacity>
+                        </View>
+                        {!!syncMessage && <Text style={styles.settingDesc}>{syncMessage}</Text>}
                     </View>
 
                     {/* General Settings */}
@@ -295,6 +335,12 @@ export default function Settings() {
                                     value={editName}
                                     onChangeText={setEditName}
                                     placeholder="Enter your full name"
+                                />
+                                <Input
+                                    label="Business Name"
+                                    value={businessName}
+                                    onChangeText={setBusinessName}
+                                    placeholder="Enter your business name"
                                 />
 
                                 <Button

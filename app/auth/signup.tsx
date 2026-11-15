@@ -3,7 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    Alert,
     TouchableOpacity,
     Image,
     Animated,
@@ -17,7 +16,7 @@ import {
 import { useRouter, Link } from 'expo-router';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../src/constants/theme';
 import { Input, Button } from '../../src/components';
-import { supabase } from '../../src/services/supabase/client';
+import { authClient } from '../../src/services/auth/client';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleAuthButton } from '../../src/components/GoogleAuthButton';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,6 +37,7 @@ export default function Signup() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [formError, setFormError] = useState('');
     const [selectedCountry, setSelectedCountry] = useState('NG');
     const [showCountryPicker, setShowCountryPicker] = useState(false);
 
@@ -133,52 +133,41 @@ export default function Signup() {
     const passwordsMatch = password && confirmPassword && password === confirmPassword;
 
     const handleSignup = async () => {
-        if (!name || !email || !password || !confirmPassword) {
-            Alert.alert('Error', 'Please fill in all fields');
+        if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+            setFormError('Complete all fields before creating your account.');
             return;
         }
 
         if (password !== confirmPassword) {
-            Alert.alert('Error', 'Passwords do not match');
+            setFormError('Your passwords do not match.');
             return;
         }
 
-        if (password.length < 6) {
-            Alert.alert('Error', 'Password must be at least 6 characters');
+        if (password.length < 8) {
+            setFormError('Your password must contain at least 8 characters.');
             return;
         }
 
         try {
+            setFormError('');
             setLoading(true);
-            const { error } = await supabase.auth.signUp({
-                email,
+            const { error } = await authClient.signUp.email({
+                name: name.trim(),
+                email: email.trim().toLowerCase(),
                 password,
-                options: {
-                    data: {
-                        full_name: name,
-                        country: selectedCountry,
-                    },
-                },
             });
+            if (error) throw new Error(error.message);
 
-            if (error) throw error;
-
-            // Save currency based on selected country
             const currencyInfo = getCurrencyByCountry(selectedCountry);
-            const settings = {
+            await AsyncStorage.setItem('user_settings', JSON.stringify({
                 currency: currencyInfo.code,
                 lowStockThreshold: 5,
                 notificationsEnabled: true,
-            };
-            await AsyncStorage.setItem('user_settings', JSON.stringify(settings));
+            }));
 
-            Alert.alert(
-                'Success! 🎉',
-                'Account created successfully! Please sign in.',
-                [{ text: 'Sign In', onPress: () => router.replace('/auth/login') }]
-            );
+            router.replace('/(tabs)');
         } catch (error: any) {
-            Alert.alert('Signup Failed', error.message);
+            setFormError(error?.message || 'We could not create your account. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -263,15 +252,18 @@ export default function Signup() {
                             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
                         ]}
                     >
-                        <GoogleAuthButton />
-
-                        <View style={styles.dividerContainer}>
+                        {process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === 'true' && (
+                            <>
+                                <GoogleAuthButton />
+                                <View style={styles.dividerContainer}>
                             <View style={styles.dividerLine} />
                             <View style={styles.dividerBadge}>
                                 <Text style={styles.dividerText}>OR</Text>
                             </View>
                             <View style={styles.dividerLine} />
-                        </View>
+                                </View>
+                            </>
+                        )}
 
                         <View style={styles.inputsContainer}>
                             <Input
@@ -346,6 +338,8 @@ export default function Signup() {
                                 }
                                 onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
                             />
+
+                            {formError ? <Text accessibilityRole="alert" style={styles.formError}>{formError}</Text> : null}
 
                             <Button
                                 title={loading ? "Creating Account..." : "Create Account"}
@@ -600,6 +594,16 @@ const styles = StyleSheet.create({
         fontSize: Typography.xs,
         fontWeight: Typography.bold,
         color: Colors.primary,
+    },
+    formError: {
+        color: '#B42318',
+        backgroundColor: '#FEF3F2',
+        borderColor: '#FECDCA',
+        borderWidth: 1,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.md,
+        fontSize: Typography.sm,
+        lineHeight: 20,
     },
     signUpButton: {
         marginTop: Spacing.md,
