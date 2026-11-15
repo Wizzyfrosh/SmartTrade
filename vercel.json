@@ -31,7 +31,22 @@
       "has": [
         {
           "type": "host",
-          "value": "smarttrade-inventotryapp.vercel.app"
+          "value": {
+            "eq": "smarttrade-inventotryapp.vercel.app"
+          }
+        }
+      ],
+      "destination": "https://smarttrade.froshcodeorbit.site/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "re": "^dist-.*-umanor-wisdom-chizoba-s-projects\\.vercel\\.app$"
+          }
         }
       ],
       "destination": "https://smarttrade.froshcodeorbit.site/:path*",
