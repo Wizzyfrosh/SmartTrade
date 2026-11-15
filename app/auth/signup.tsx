@@ -158,12 +158,18 @@ export default function Signup() {
             });
             if (error) throw new Error(error.message);
 
-            const currencyInfo = getCurrencyByCountry(selectedCountry);
-            await AsyncStorage.setItem('user_settings', JSON.stringify({
-                currency: currencyInfo.code,
-                lowStockThreshold: 5,
-                notificationsEnabled: true,
-            }));
+            // Account creation is already complete at this point. Local preferences
+            // must never turn a successful server signup into a reported signup failure.
+            try {
+                const currencyInfo = getCurrencyByCountry(selectedCountry);
+                await AsyncStorage.setItem('user_settings', JSON.stringify({
+                    currency: currencyInfo.code,
+                    lowStockThreshold: 5,
+                    notificationsEnabled: true,
+                }));
+            } catch (storageError) {
+                console.warn('Account created, but local preferences could not be saved:', storageError);
+            }
 
             router.replace('/(tabs)');
         } catch (error: any) {
@@ -345,6 +351,7 @@ export default function Signup() {
                                 title={loading ? "Creating Account..." : "Create Account"}
                                 onPress={handleSignup}
                                 loading={loading}
+                                disabled={loading}
                                 style={styles.signUpButton}
                             />
                         </View>
