@@ -24,33 +24,5 @@
         }
       ]
     }
-  ],
-  "redirects": [
-    {
-      "source": "/:path((?!api/).*)",
-      "has": [
-        {
-          "type": "host",
-          "value": {
-            "eq": "smarttrade-inventotryapp.vercel.app"
-          }
-        }
-      ],
-      "destination": "https://smarttrade.froshcodeorbit.site/:path*",
-      "permanent": false
-    },
-    {
-      "source": "/:path((?!api/).*)",
-      "has": [
-        {
-          "type": "host",
-          "value": {
-            "re": "^dist-.*-umanor-wisdom-chizoba-s-projects\\.vercel\\.app$"
-          }
-        }
-      ],
-      "destination": "https://smarttrade.froshcodeorbit.site/:path*",
-      "permanent": false
-    }
   ]
 }
