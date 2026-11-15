@@ -268,17 +268,18 @@ export default function Login() {
                                 onRightIconPress={() => setShowPassword(!showPassword)}
                             />
 
-                            <Link
-                                href={{
+                            <TouchableOpacity
+                                style={styles.forgotPassword}
+                                accessibilityRole="link"
+                                accessibilityLabel="Forgot password"
+                                activeOpacity={0.65}
+                                onPress={() => router.push({
                                     pathname: '/auth/forgot-password',
                                     params: email.trim() ? { email: email.trim().toLowerCase() } : {},
-                                }}
-                                asChild
+                                })}
                             >
-                                <TouchableOpacity style={styles.forgotPassword} accessibilityRole="link">
-                                    <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-                                </TouchableOpacity>
-                            </Link>
+                                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                            </TouchableOpacity>
 
                             {formError ? <Text accessibilityRole="alert" style={styles.formError}>{formError}</Text> : null}
 
