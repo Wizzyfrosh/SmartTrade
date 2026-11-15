@@ -24,5 +24,20 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "suf": ".vercel.app"
+          }
+        }
+      ],
+      "destination": "https://smarttrade.froshcodeorbit.site/$1",
+      "permanent": true
+    }
   ]
 }
