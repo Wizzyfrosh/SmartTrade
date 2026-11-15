@@ -22,11 +22,6 @@ const pool = globalForPool.smartTradePool ?? new Pool({
 if (process.env.NODE_ENV !== "production") globalForPool.smartTradePool = pool;
 
 const trustedOrigins = [
-  authUrl,
-  "https://smarttrade-inventotryapp.vercel.app",
-  "https://dist-7ihkmvwh9-umanor-wisdom-chizoba-s-projects.vercel.app",
-  "https://dist-4v0qa6hbj-umanor-wisdom-chizoba-s-projects.vercel.app",
-  "https://dist-2gr0n1iy2-umanor-wisdom-chizoba-s-projects.vercel.app",
   "smarttrade://",
   ...(process.env.NODE_ENV !== "production"
     ? ["http://localhost:8081", "http://localhost:19006"]
@@ -100,7 +95,15 @@ export const auth = betterAuth({
   // Resolve auth URLs and cookie scope from the actual host serving this deployment.
   // This supports the canonical domain and this Vercel project's deployment hosts
   // without redirecting API requests across origins.
-  baseURL: authUrl,
+  baseURL: {
+    allowedHosts: [
+      "smarttrade.froshcodeorbit.site",
+      "smarttrade-inventotryapp.vercel.app",
+      "*.umanor-wisdom-chizoba-s-projects.vercel.app",
+    ],
+    protocol: "https",
+    fallback: authUrl,
+  },
   secret: authSecret,
   database: pool,
   trustedOrigins: [...new Set(trustedOrigins)],
